@@ -1,5 +1,4 @@
-import certifi
+from selenium import webdriver
 
-
-cafile = certifi.where()
-print(cafile)
+browser = webdriver.Safari()
+browser.get('http://selenium.dev/')

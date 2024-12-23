@@ -14,13 +14,41 @@ load_dotenv()
 ### 공포 탐욕 지수 API 호출
 def get_fear_and_greed_index():
     url = "https://api.alternative.me/fng/"
-    response = requests.get(url, verify=False)
+    response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
         return data['data'][0]
     else:
         print(f"Failed to fetch Fear and Greed Index. Status code: {response.status_code}")
         return None
+    
+### SerpAPI를 이용하여 Bitcoin 관련 뉴스 헤드라인 조회
+def get_bitcoin_news():
+    serpapi_key = os.getenv("SERPAPI_API_KEY")
+    url = "https://serpapi.com/search.json"
+    params = {
+        "engine": "google_news",
+        "q": "btc",
+        "api_key": serpapi_key
+    }
+    
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()  # Raises a HTTPError if the status is 4xx, 5xx
+        data = response.json()
+        
+        news_results = data.get("news_results", [])
+        headlines = []
+        for item in news_results:
+            headlines.append({
+                "title": item.get("title", ""),
+                "date": item.get("date", "")
+            })
+        
+        return headlines[:5]  # 최신 5개의 뉴스 헤드라인만 반환
+    except requests.RequestException as e:
+        print(f"Error fetching news: {e}")
+        return []
 
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
@@ -81,6 +109,9 @@ def ai_trading():
     # 4. 공포 탐욕 지수 가져오기
     fear_greed_index = get_fear_and_greed_index()
 
+    # 5. 뉴스 헤드라인 가져오기
+    news_headlines = get_bitcoin_news()
+
     # AI에게 데이터 제공하고 판단 받기
     client = OpenAI()
 
@@ -108,6 +139,7 @@ def ai_trading():
             Orderbook: {json.dumps(orderbook)}
             Daily OHLCV with indicators (30 days): {df_daily.to_json()}
             Hourly OHLCV with indicators (24 hours): {df_hourly.to_json()}
+            Recent news headlines: {json.dumps(news_headlines)}
             Fear and Greed Index: {json.dumps(fear_greed_index)}"""
         }
         ],

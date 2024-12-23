@@ -22,6 +22,7 @@ MANIFEST
 .env
 .venv
 env/
+bitcoin/
 upbit/
 ENV/
 env.bak/
