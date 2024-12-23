@@ -1,4 +1,4 @@
 python-dotenv
 openai
 pyupbit
-pyjwt
+ta
