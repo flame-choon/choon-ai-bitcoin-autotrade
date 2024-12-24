@@ -14,7 +14,7 @@ load_dotenv()
 ### 공포 탐욕 지수 API 호출
 def get_fear_and_greed_index():
     url = "https://api.alternative.me/fng/"
-    response = requests.get(url)
+    response = requests.get(url, verify=False)
     if response.status_code == 200:
         data = response.json()
         return data['data'][0]
