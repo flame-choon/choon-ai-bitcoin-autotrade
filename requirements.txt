@@ -4,3 +4,4 @@ pyupbit
 ta
 selenium
 webdriver-manager
+Pillow

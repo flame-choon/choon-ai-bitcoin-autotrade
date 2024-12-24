@@ -6,15 +6,60 @@ import json
 import ta
 from ta.utils import dropna
 import requests
+import logging
+import time
+import base64
+from PIL import Image
+import io
+from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.common.actions.wheel_input import ScrollOrigin
+from selenium.webdriver import ActionChains
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException, WebDriverException
+
+
+### 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 ### .env 파일에 저장되어 있는 환경변수 정보를 불러옴
 load_dotenv()
 
+### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
+### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
+def add_indicators(df):
+    # 볼린저 밴드
+    indicator_bb = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
+    df['bb_bbm'] = indicator_bb.bollinger_mavg()
+    df['bb_bbh'] = indicator_bb.bollinger_hband()
+    df['bb_bbl'] = indicator_bb.bollinger_lband()
+
+    # RSI
+    df['rsi'] = ta.momentum.RSIIndicator(close=df['close'], window=14).rsi()
+
+    # MACD
+    macd = ta.trend.MACD(close=df['close'])
+    df['macd'] = macd.macd()
+    df['macd_signal'] = macd.macd_signal()
+    df['macd_diff'] = macd.macd_diff()
+    
+    # 이동평균선
+    df['sma_20'] = ta.trend.SMAIndicator(close=df['close'], window=20).sma_indicator()
+    df['ema_12'] = ta.trend.EMAIndicator(close=df['close'], window=12).ema_indicator()
+    
+    return df
+
 ### 공포 탐욕 지수 API 호출
 def get_fear_and_greed_index():
     url = "https://api.alternative.me/fng/"
-    response = requests.get(url, verify=False)
+    response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
         return data['data'][0]
@@ -50,29 +95,130 @@ def get_bitcoin_news():
         print(f"Error fetching news: {e}")
         return []
 
-### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
-### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
-def add_indicators(df):
-    # 볼린저 밴드
-    indicator_bb = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
-    df['bb_bbm'] = indicator_bb.bollinger_mavg()
-    df['bb_bbh'] = indicator_bb.bollinger_hband()
-    df['bb_bbl'] = indicator_bb.bollinger_lband()
+### selenium에 사용할 옵션 설정
+def setup_chrome_options():
+    chrome_options = Options()
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--headless")  # 디버깅을 위해 헤드리스 모드 비활성화
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+    return chrome_options
 
-    # RSI
-    df['rsi'] = ta.momentum.RSIIndicator(close=df['close'], window=14).rsi()
+### selenum에 사용할 크롬드라이버 설정
+def create_driver():
+    logger.info("ChromeDriver 설정 중...")
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=setup_chrome_options())
+    return driver
 
-    # MACD
-    macd = ta.trend.MACD(close=df['close'])
-    df['macd'] = macd.macd()
-    df['macd_signal'] = macd.macd_signal()
-    df['macd_diff'] = macd.macd_diff()
+### selenium을 이용하여 XPATH 기반으로 특정 요소를 선택
+def click_element_by_xpath(driver, xpath, element_name, wait_time=10):
+    try:
+        element = WebDriverWait(driver, wait_time).until(
+            EC.element_to_be_clickable((By.XPATH, xpath))
+        )
+        element.click()
+        logger.info(f"{element_name} 클릭 완료")
+        time.sleep(2)  # 클릭 후 잠시 대기
+    except TimeoutException:
+        logger.error(f"{element_name} 요소를 찾는 데 시간이 초과되었습니다.")
+    except ElementClickInterceptedException:
+        logger.error(f"{element_name} 요소를 클릭할 수 없습니다. 다른 요소에 가려져 있을 수 있습니다.")
+    except Exception as e:
+        logger.error(f"{element_name} 클릭 중 오류 발생: {e}")
+
+### selenium을 이용하여 Upbit KRW-BTC 의 차트 요소들 선택 (1일봉 , 볼린저 밴드, 일목균형표)
+def perform_chart_actions(driver):
+    # 시간 메뉴 클릭
+    click_element_by_xpath(
+        driver,
+        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[1]/span",
+        "시간 메뉴"
+    )
     
-    # 이동평균선
-    df['sma_20'] = ta.trend.SMAIndicator(close=df['close'], window=20).sma_indicator()
-    df['ema_12'] = ta.trend.EMAIndicator(close=df['close'], window=12).ema_indicator()
+    # 일 옵션 선택
+    click_element_by_xpath(
+        driver,
+        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[1]/cq-menu-dropdown/cq-item[10]",
+        "일 옵션"
+    )
     
-    return df
+    # 지표 메뉴 클릭
+    click_element_by_xpath(
+        driver,
+        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/span",
+        "지표 메뉴"
+    )
+
+    # 볼린저 밴드 옵션 선택
+    click_element_by_xpath(
+        driver,
+        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/cq-menu-dropdown/cq-scroll/cq-studies/cq-studies-content/cq-item[15]",
+        "볼린저 밴드 옵션"
+    )
+
+    # 지표 메뉴 클릭
+    click_element_by_xpath(
+        driver,
+        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/span",
+        "지표 메뉴"
+    )
+
+    # 지표 메뉴 스크롤 이동
+    element = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/cq-menu-dropdown/cq-scroll/div[2]")
+    scroll_origin = ScrollOrigin.from_element(element)
+    ActionChains(driver)\
+        .scroll_from_origin(scroll_origin, 0, 700)\
+        .perform()
+    
+    # 일목균형표 옵션 선택
+    click_element_by_xpath(
+        driver,
+        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/cq-menu-dropdown/cq-scroll/cq-studies/cq-studies-content/cq-item[44]",
+        "일목균형표 옵션"
+    )
+
+### selenium을 이용하여 캡쳐한 이미지를 Open AI Vision API 호출을 위한 base64로 변환
+def capture_and_encode_screenshot(driver):
+    try:
+        # 스크린샷 캡쳐
+        png = driver.get_screenshot_as_png()
+
+        # PIL Image로 변환
+        img = Image.open(io.BytesIO(png))
+
+        # 이미지 리사이즈 (OpenAI API 제한에 맞춤)
+        img.thumbnail((2000, 2000))
+
+        # 현재 시간을 파일명에 포함
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"upbit_chart_{current_time}.png"
+
+        # 현재 스크립트의 경로를 가져옴
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # 파일 저장 경로 설정
+        file_path = os.path.join(script_dir, filename)
+
+        # 이미지 파일로 저장
+        img.save(file_path)
+        logger.info(f"스크린샷이 저장되었습니다 : {file_path}")
+
+        # 이미지를 바이트로 변환
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+
+        # base64로 인코딩
+        base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+        return base64_image, file_path
+    
+    except Exception as e:
+        logger.error(f"스크린샷 캡처 및 인코딩 중 오류 발생: {e}")
+        return None, None
+
 
 ### 자동 트레이드 메서드
 def ai_trading():
@@ -112,39 +258,73 @@ def ai_trading():
     # 5. 뉴스 헤드라인 가져오기
     news_headlines = get_bitcoin_news()
 
+    # 6. Selenum으로 Upbit KRW-BTC 차트 캡쳐 (1일봉, 볼린저밴드, 일목균형표 추가)
+    driver = None
+    try:
+        driver = create_driver()
+        driver.get("https://upbit.com/full_chart?code=CRIX.UPBIT.KRW-BTC")
+        logger.info("Upbit KRW-BTC 페이지 로드 완료")
+        time.sleep(10) # 네트워크 환경 고려하여 페이지 로딩 대기 시간
+        logger.info("차트 작업 시작")
+        perform_chart_actions(driver)
+        logger.info("차트 작업 완료")
+        chart_image, saved_file_path = capture_and_encode_screenshot(driver)
+        logger.info(f"스크린 샷 캡쳐 완료. 저장된 파일 경로: {saved_file_path}")
+    except WebDriverException as e:
+        logger.error(f"WebDriver 오류 발생 : {e}")
+        chart_image, saved_file_path = None, None
+    except Exception as e:
+        logger.error(f"차트 캡쳐 중 오류 발생: {e}")
+        chart_image, saved_file_path = None, None
+    finally:
+        if driver:
+            driver.quit()
+
     # AI에게 데이터 제공하고 판단 받기
     client = OpenAI()
 
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
-        {
-        "role": "system",
-        "content": """You are an expert in Bitcoin investing. Analyze the provided data including technical indicators, market data, recent news headlines, and the Fear and Greed Index. Tell me whether to buy, sell, or hold at the moment. Consider the following in your analysis:
-        - Technical indicators and market data
-        - Recent news headlines and their potential impact on Bitcoin price
-        - The Fear and Greed Index and its implications
-        - Overall market sentiment
-        
-        Response in json format.
+            {
+                "role": "system",
+                "content": """You are an expert in Bitcoin investing. Analyze the provided data including technical indicators, market data, recent news headlines, and the Fear and Greed Index. Tell me whether to buy, sell, or hold at the moment. Consider the following in your analysis:
+                - Technical indicators and market data
+                - Recent news headlines and their potential impact on Bitcoin price
+                - The Fear and Greed Index and its implications
+                - Overall market sentiment
+                
+                Response in json format.
 
-        Response Example:
-        {"decision": "buy", "reason": "some technical, fundamental, and sentiment-based reason"}
-        {"decision": "sell", "reason": "some technical, fundamental, and sentiment-based reason"}
-        {"decision": "hold", "reason": "some technical, fundamental, and sentiment-based reason"}"""
-        },
-        {
-        "role": "user",
-        "content": f"""Current investment status: {json.dumps(filtered_balances)}
-            Orderbook: {json.dumps(orderbook)}
-            Daily OHLCV with indicators (30 days): {df_daily.to_json()}
-            Hourly OHLCV with indicators (24 hours): {df_hourly.to_json()}
-            Recent news headlines: {json.dumps(news_headlines)}
-            Fear and Greed Index: {json.dumps(fear_greed_index)}"""
-        }
+                Response Example:
+                {"decision": "buy", "reason": "some technical, fundamental, and sentiment-based reason"}
+                {"decision": "sell", "reason": "some technical, fundamental, and sentiment-based reason"}
+                {"decision": "hold", "reason": "some technical, fundamental, and sentiment-based reason"}"""
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"""Current investment status: {json.dumps(filtered_balances)}
+                                Orderbook: {json.dumps(orderbook)}
+                                Daily OHLCV with indicators (30 days): {df_daily.to_json()}
+                                Hourly OHLCV with indicators (24 hours): {df_hourly.to_json()}
+                                Recent news headlines: {json.dumps(news_headlines)}
+                                Fear and Greed Index: {json.dumps(fear_greed_index)}"""
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{chart_image}"
+                        }                        
+                    }
+                ]
+            }
         ],
+        max_tokens=300,
         response_format={
-        "type": "json_object"
+            "type": "json_object"
         }
     )
     result = response.choices[0].message.content
