@@ -1,4 +1,5 @@
 upbit*
+bitcoin_trades.db
 
 # Distribution / packaging
 .Python

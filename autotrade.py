@@ -11,6 +11,8 @@ import time
 import base64
 from PIL import Image
 import io
+import sqlite3
+from pydantic import BaseModel
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -23,6 +25,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException, WebDriverException
 
+
+class TradingDecision(BaseModel):
+    decision: str
+    percentage: int
+    reason: str
 
 ### 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -219,6 +226,20 @@ def capture_and_encode_screenshot(driver):
         logger.error(f"스크린샷 캡처 및 인코딩 중 오류 발생: {e}")
         return None, None
 
+### SQLite DB 연결
+def get_db_connection():
+    return sqlite3.connect('bitcoin_trades.db')
+
+### DB에 거래 정보 로깅 
+def log_trade(conn, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price):
+    c = conn.cursor()
+    timestamp = datetime.now().isoformat()
+    c.execute(""" 
+        INSERT INTO trades (timestamp, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price)
+        VALUES (?,?,?,?,?,?,?,?)
+        """, (timestamp, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price))
+
+    conn.commit()
 
 ### 자동 트레이드 메서드
 def ai_trading():
@@ -288,18 +309,22 @@ def ai_trading():
         messages=[
             {
                 "role": "system",
-                "content": """You are an expert in Bitcoin investing. Analyze the provided data including technical indicators, market data, recent news headlines, and the Fear and Greed Index. Tell me whether to buy, sell, or hold at the moment. Consider the following in your analysis:
+                "content": """You are an expert in Bitcoin investing. Analyze the provided data including technical indicators, market data, recent news headlines, the Fear and Greed Index, YouTube video transcript, and the chart image. Tell me whether to buy, sell, or hold at the moment. Consider the following in your analysis:
                 - Technical indicators and market data
                 - Recent news headlines and their potential impact on Bitcoin price
                 - The Fear and Greed Index and its implications
                 - Overall market sentiment
+                - The patterns and trends visible in the chart image
                 
-                Response in json format.
-
-                Response Example:
-                {"decision": "buy", "reason": "some technical, fundamental, and sentiment-based reason"}
-                {"decision": "sell", "reason": "some technical, fundamental, and sentiment-based reason"}
-                {"decision": "hold", "reason": "some technical, fundamental, and sentiment-based reason"}"""
+                Respond with:
+                1. A decision (buy, sell, or hold)
+                2. If the decision is 'buy', provide a percentage (1-100) of available KRW to use for buying.
+                If the decision is 'sell', provide a percentage (1-100) of held BTC to sell.
+                If the decision is 'hold', set the percentage to 0.
+                3. A reason for your decision
+                
+                Ensure that the percentage is an integer between 1 and 100 for buy/sell decisions, and exactly 0 for hold decisions.
+                Your percentage should reflect the strength of your conviction in the decision based on the analyzed data."""
             },
             {
                 "role": "user",
@@ -322,36 +347,76 @@ def ai_trading():
                 ]
             }
         ],
-        max_tokens=300,
         response_format={
-            "type": "json_object"
-        }
+            "type": "json_schema",
+            "json_schema": {
+                "name": "trading_decision",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "decision": {"type": "string", "enum": ["buy","sell","hold"]},
+                        "percentage": {"type": "integer"},
+                        "reason": {"type": "string"}
+                    },
+                    "required": ["decision", "percentage", "reason"],
+                    "additionalProperties": False
+                }
+            }
+        },
+        max_tokens=4095
     )
-    result = response.choices[0].message.content
 
     # AI의 판단에 따라 실제로 자동매매 진행하기
-    result = json.loads(result)
+    # pydantic 메서드 이용
+    result = TradingDecision.model_validate_json(response.choices[0].message.content)
 
-    print("### AI Decision: ", result["decision"].upper(), "###")
-    print(f"### Reason: {result['reason']} ###")
+    # 데이터 베이스 연결
+    conn = get_db_connection()
 
-    if result["decision"] == "buy":
+    print("### AI Decision: ", {result.decision.upper()}, "###")
+    print(f"### Reason: {result.reason} ###")
+
+    order_executed = False
+
+    if result.decision == "buy":
         my_krw = upbit.get_balance("KRW")
-        if my_krw*0.9995 > 5000:
+        buy_amount = my_krw * (result.percentage / 100) * 0.9995
+        if buy_amount > 5000:
             print("### Buy Order Executed ###")
-            print(upbit.buy_market_order("KRW-BTC", my_krw * 0.9995))
+            order = upbit.buy_market_order("KRW-BTC", buy_amount)
+            if order:
+                order_executed = True
+            print(order)
         else:
             print("### Buy Order Failed: Insufficient KRW (less than 5000 KRW) ###")
-    elif result["decision"] == "sell":
+    elif result.decision == "sell":
         my_btc = upbit.get_balance("KRW-BTC")
+        sell_amount = my_btc * (result.percentage / 100)
         current_price = pyupbit.get_orderbook(ticker="KRW-BTC")['orderbook_units'][0]["ask_price"]
-        if my_btc*current_price > 5000:
+        if sell_amount * current_price > 5000:
             print("### Sell Order Executed ###")
-            print(upbit.sell_market_order("KRW-BTC", my_btc))
+            order = upbit.sell_market_order("KRW-BTC", sell_amount)
+            if order:
+                order_executed = True
+            print(order)
         else:
             print("### Sell Order Failed: Insufficient BTC (less than 5000 KRW worth) ###")
-    elif result["decision"] == "hold":
+    elif result.decision == "hold":
         print("### Hold Position ###")
+    
+    # 거래 실행 여부와 관계없이 현재 잔고 조회
+    time.sleep(1) # API 호출 제한을 고려하여 잠시 대기
+    balances = upbit.get_balances()
+    btc_balance = next((float(balance['balance']) for balance in balances if balance['currency'] == 'BTC'), 0)
+    krw_balance = next((float(balance['balance']) for balance in balances if balance['currency'] == 'KRW'), 0)
+    btc_avg_buy_price = next((float(balance['avg_buy_price']) for balance in balances if balance['currency'] == 'BTC'), 0)
+    current_btc_price = pyupbit.get_current_price("KRW-BTC")
 
+    # 거래 정보 로깅
+    log_trade(conn, result.decision, result.percentage if order_executed else 0,
+              result.reason, btc_balance, krw_balance, btc_avg_buy_price, current_btc_price)
+
+    conn.close()
 
 ai_trading()
