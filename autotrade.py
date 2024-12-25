@@ -1,5 +1,8 @@
 import os
+import sys
 from dotenv import load_dotenv
+from cryptography.fernet import Fernet
+import mysql.connector
 import pyupbit
 from openai import OpenAI
 import pandas as pd
@@ -12,7 +15,8 @@ import time
 import base64
 from PIL import Image
 import io
-import sqlite3
+# import sqlite3
+import mysql
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from selenium import webdriver
@@ -26,27 +30,72 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException, WebDriverException
 
-
 class TradingDecision(BaseModel):
     decision: str
     percentage: int
     reason: str
 
+### 암호화 키 호출
+# fernetKey = os.getenv('PYTHON_ENV', sys.argv[2])
+with open("encryption_key.key", "rb") as key_file:
+    fernetKey = key_file.read()
+fernet = Fernet(fernetKey)
+
+### 환경변수 로드
+def load_env():
+    env = os.getenv('PYTHON_ENV', sys.argv[1])
+    env_file = f'.env.{env}'
+
+    ### .env 파일에 저장되어 있는 환경변수 정보를 불러옴
+    load_dotenv(dotenv_path=env_file)
+    print(f"Current environment: {env}")
+
+### 환경변수 복호화
+def decrypt_env_value(encrypted_value):
+    print(encrypted_value)
+    return fernet.decrypt(encrypted_value).decode()
+
+### SQLite DB 연결
+def get_db_connection():
+    return mysql.connector.connect(
+        # host=decrypt_env_value(os.getenv('DATABASE_URL')),
+        host=decrypt_env_value(b'gAAAAABnbA0Ut1lRwf1nj_AgekIMDPIs2mmj-wB3qYVvUf3sbV5lPaUz8oqRzOVltnnvTIhZuymUjJD7_6dPwkU3Lpe7AhOHew=='),
+        user="application",
+        password="%Camui0110",
+        database="bitcoin_trades"
+    )
+    # return sqlite3.connect('bitcoin_trades.db')
+
+
 ### DB 초기화
 def init_db():
-    conn = sqlite3.connect('bitcoin_trades.db')
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS trades
-              (id INTEGER PRIMARY KEY AUTOINCREMENT,
-              timestamp TEXT,
-              decision TEXT,
-              percentage INTEGER,
-              reason TEXT,
-              btc_balance REAL,
-              krw_balance REAL,
-              btc_avg_buy_price REAL,
-              btc_krw_price REAL,
-              reflection TEXT)''')
+    c.execute('''
+                CREATE TABLE IF NOT EXISTS trades (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    timestamp VARCHAR(255),
+                    decision VARCHAR(10),
+                    percentage INT,
+                    reason TEXT,
+                    btc_balance DECIMAL(18,8),
+                    krw_balance DECIMAL(18,2),
+                    btc_avg_buy_price DECIMAL(18,2),
+                    btc_krw_price DECIMAL(18,2),
+                    reflection TEXT
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+              ''')
+    # c.execute('''CREATE TABLE IF NOT EXISTS trades
+    #           (id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #           timestamp TEXT,
+    #           decision TEXT,
+    #           percentage INTEGER,
+    #           reason TEXT,
+    #           btc_balance REAL,
+    #           krw_balance REAL,
+    #           btc_avg_buy_price REAL,
+    #           btc_krw_price REAL,
+    #           reflection TEXT)''')
     conn.commit()
     return conn
 
@@ -54,11 +103,11 @@ def init_db():
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# 환경변수 로드
+load_env()
+
 # 데이터베이스 초기화
 init_db()
-
-### .env 파일에 저장되어 있는 환경변수 정보를 불러옴
-load_dotenv()
 
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
@@ -97,7 +146,7 @@ def get_fear_and_greed_index():
     
 ### SerpAPI를 이용하여 Bitcoin 관련 뉴스 헤드라인 조회
 def get_bitcoin_news():
-    serpapi_key = os.getenv("SERPAPI_API_KEY")
+    serpapi_key = decrypt_env_value(b'gAAAAABnbA0Ul7rJQ7KyN61IsPzSpXRjn_M1Ko2HWeZ70NgMnjIn_fGfP2ZB18CI6CVoLfqQkwkKeGlJyZLSeesA4GRLwJheaIf_LUbcMSD0Y6Sy67QVeJieJ9XQ42ea66tl8kJ_f0hF7pYcrDBmwotQ8KYqXV1zzVEWZs8iXWyu1dGpRyF_jHk=')
     url = "https://serpapi.com/search.json"
     params = {
         "engine": "google_news",
@@ -247,9 +296,7 @@ def capture_and_encode_screenshot(driver):
         logger.error(f"스크린샷 캡처 및 인코딩 중 오류 발생: {e}")
         return None, None
 
-### SQLite DB 연결
-def get_db_connection():
-    return sqlite3.connect('bitcoin_trades.db')
+
 
 ### DB에 거래 정보 로깅 
 def log_trade(conn, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price, reflection=''):
@@ -257,14 +304,14 @@ def log_trade(conn, decision, percentage, reason, btc_balance, krw_balance, btc_
     timestamp = datetime.now().isoformat()
     c.execute("""INSERT INTO trades 
                  (timestamp, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price, reflection) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
               (timestamp, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price, reflection))
     conn.commit()
 
 def get_recent_trades(conn, days=7):
     c = conn.cursor()
     seven_days_ago = (datetime.now() - timedelta(days=days)).isoformat()
-    c.execute("SELECT * FROM trades WHERE timestamp > ? ORDER BY timestamp DESC", (seven_days_ago,))
+    c.execute("SELECT * FROM trades WHERE timestamp > %s ORDER BY timestamp DESC", (seven_days_ago,))
     columns = [column[0] for column in c.description]
     return pd.DataFrame.from_records(data=c.fetchall(), columns=columns)
 
@@ -282,7 +329,7 @@ def generate_reflection(trades_df, current_market_data):
     
     client = OpenAI()
     response = client.chat.completions.create(
-        model="gpt-4o-2024-08-06",
+        model="gpt-4o",
         messages=[
             {
                 "role": "system",
@@ -318,7 +365,7 @@ def generate_reflection(trades_df, current_market_data):
 def ai_trading():
     # Upbit 객체 생성
     accessKey = os.getenv("UPBIT_ACCESS_KEY")
-    secretKey = os.getenv("UPBIT_SECRET_KEY") 
+    secretKey = os.getenv("UPBIT_SECRET_KEY")
     upbit = pyupbit.Upbit(accessKey, secretKey)
 
     # 1. 현재 투자 상태 조회 (KRW, BTC 만 조회)

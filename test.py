@@ -1,17 +1,17 @@
-import os
-import pyupbit
-from dotenv import load_dotenv
+# def load_env():
 
-### .env 파일에 저장되어 있는 환경변수 정보를 불러옴
-load_dotenv()
+#     env = os.getenv('PYTHON_ENV', sys.argv[1])
 
-# Upbit 객체 생성
-accessKey = os.getenv("UPBIT_ACCESS_KEY")
-secretKey = os.getenv("UPBIT_SECRET_KEY") 
-upbit = pyupbit.Upbit(accessKey, secretKey)
+#     env_file = f'.env.{env}'
 
-balances = upbit.get_balances()
-print(balances)
+#     load_dotenv(dotenv_path=env_file)
+
+#     print(f"Current environment: {env}")
+
+# load_env()
+
+# database_url = os.getenv('DATABASE_URL')
+# print(f"Database URL: {database_url}")
 
 # ### youtube-transcript-api 테스트
 
