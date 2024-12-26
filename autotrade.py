@@ -15,7 +15,6 @@ import time
 import base64
 from PIL import Image
 import io
-# import sqlite3
 import mysql
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -35,11 +34,13 @@ class TradingDecision(BaseModel):
     percentage: int
     reason: str
 
+### 로깅 설정
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 ### 암호화 키 호출
-# fernetKey = os.getenv('PYTHON_ENV', sys.argv[2])
-with open("encryption_key.key", "rb") as key_file:
-    fernetKey = key_file.read()
-fernet = Fernet(fernetKey)
+fernetKey = '5KhrPQVFtDT_0_sbqYVEx-eOF5epwnxTEdrI1FE9B_o='
+fernet = Fernet(fernetKey.encode())
 
 ### 환경변수 로드
 def load_env():
@@ -52,20 +53,17 @@ def load_env():
 
 ### 환경변수 복호화
 def decrypt_env_value(encrypted_value):
-    print(encrypted_value)
     return fernet.decrypt(encrypted_value).decode()
 
 ### SQLite DB 연결
 def get_db_connection():
     return mysql.connector.connect(
-        # host=decrypt_env_value(os.getenv('DATABASE_URL')),
-        host=decrypt_env_value(b'gAAAAABnbA0Ut1lRwf1nj_AgekIMDPIs2mmj-wB3qYVvUf3sbV5lPaUz8oqRzOVltnnvTIhZuymUjJD7_6dPwkU3Lpe7AhOHew=='),
+        host=decrypt_env_value(os.getenv('DATABASE_URL')),
         user="application",
         password="%Camui0110",
         database="bitcoin_trades"
     )
     # return sqlite3.connect('bitcoin_trades.db')
-
 
 ### DB 초기화
 def init_db():
@@ -99,9 +97,6 @@ def init_db():
     conn.commit()
     return conn
 
-### 로깅 설정
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # 환경변수 로드
 load_env()
@@ -146,7 +141,7 @@ def get_fear_and_greed_index():
     
 ### SerpAPI를 이용하여 Bitcoin 관련 뉴스 헤드라인 조회
 def get_bitcoin_news():
-    serpapi_key = decrypt_env_value(b'gAAAAABnbA0Ul7rJQ7KyN61IsPzSpXRjn_M1Ko2HWeZ70NgMnjIn_fGfP2ZB18CI6CVoLfqQkwkKeGlJyZLSeesA4GRLwJheaIf_LUbcMSD0Y6Sy67QVeJieJ9XQ42ea66tl8kJ_f0hF7pYcrDBmwotQ8KYqXV1zzVEWZs8iXWyu1dGpRyF_jHk=')
+    serpapi_key = decrypt_env_value(os.getenv('SERPAPI_API_KEY'))
     url = "https://serpapi.com/search.json"
     params = {
         "engine": "google_news",
@@ -297,7 +292,6 @@ def capture_and_encode_screenshot(driver):
         return None, None
 
 
-
 ### DB에 거래 정보 로깅 
 def log_trade(conn, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price, reflection=''):
     c = conn.cursor()
@@ -327,7 +321,9 @@ def calculate_performance(trades_df):
 def generate_reflection(trades_df, current_market_data):
     performance = calculate_performance(trades_df)
     
-    client = OpenAI()
+    client = OpenAI(
+        api_key=decrypt_env_value(os.getenv('OPENAI_API_KEY'))
+    )
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -364,8 +360,8 @@ def generate_reflection(trades_df, current_market_data):
 ### 자동 트레이드 메서드
 def ai_trading():
     # Upbit 객체 생성
-    accessKey = os.getenv("UPBIT_ACCESS_KEY")
-    secretKey = os.getenv("UPBIT_SECRET_KEY")
+    accessKey = decrypt_env_value(os.getenv("UPBIT_ACCESS_KEY"))
+    secretKey = decrypt_env_value(os.getenv("UPBIT_SECRET_KEY"))
     upbit = pyupbit.Upbit(accessKey, secretKey)
 
     # 1. 현재 투자 상태 조회 (KRW, BTC 만 조회)
