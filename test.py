@@ -1,6 +1,22 @@
 import boto3
 
+boto3_session = boto3.Session(profile_name='choon')
+sts_client = boto3_session.client('sts')
+assume_role_client = sts_client.assume_role(
+    RoleArn="arn:aws:iam::879780444466:role/choon-assume-role",
+    RoleSessionName="choon-session"
+)
 
+assume_session = boto3.Session(
+    aws_access_key_id=assume_role_client['Credentials']['AccessKeyId'],
+    aws_secret_access_key=assume_role_client['Credentials']['SecretAccessKey'],
+    aws_session_token=assume_role_client['Credentials']['SessionToken']
+)
+
+ssm_client = assume_session.client('ssm')
+parameter = ssm_client.get_parameter(Name='/local/key/fernet', WithDecryption=True)
+
+print(parameter['Parameter']['Value'])
 
 # def load_env():
 

@@ -1,3 +1,4 @@
+import boto3
 import os
 import sys
 from dotenv import load_dotenv
@@ -38,8 +39,26 @@ class TradingDecision(BaseModel):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+### AWS Parameter Store에 접근하여 암호화 키 가져오기
+boto3_session = boto3.Session(profile_name='choon')
+sts_client = boto3_session.client('sts')
+assume_role_client = sts_client.assume_role(
+    RoleArn="arn:aws:iam::879780444466:role/choon-assume-role",
+    RoleSessionName="choon-session"
+)
+
+assume_session = boto3.Session(
+    aws_access_key_id=assume_role_client['Credentials']['AccessKeyId'],
+    aws_secret_access_key=assume_role_client['Credentials']['SecretAccessKey'],
+    aws_session_token=assume_role_client['Credentials']['SessionToken']
+)
+
+ssm_client = assume_session.client('ssm')
+parameter = ssm_client.get_parameter(Name='/local/key/fernet', WithDecryption=True)
+
 ### 암호화 키 호출
-fernetKey = '5KhrPQVFtDT_0_sbqYVEx-eOF5epwnxTEdrI1FE9B_o='
+fernetKey = parameter['Parameter']['Value']
 fernet = Fernet(fernetKey.encode())
 
 ### 환경변수 로드
@@ -63,7 +82,6 @@ def get_db_connection():
         password="%Camui0110",
         database="bitcoin_trades"
     )
-    # return sqlite3.connect('bitcoin_trades.db')
 
 ### DB 초기화
 def init_db():
@@ -422,7 +440,6 @@ def ai_trading():
                                 Orderbook: {json.dumps(orderbook)}
                                 Daily OHLCV with indicators (30 days): {df_daily.to_json()}
                                 Hourly OHLCV with indicators (24 hours): {df_hourly.to_json()}
-                                Recent news headlines: {json.dumps(news_headlines)}
                                 Fear and Greed Index: {json.dumps(fear_greed_index)}"""
                     },
                     {
@@ -467,7 +484,6 @@ def ai_trading():
     # 현재 시장 데이터 수집 (기존 코드에서 가져온 데이터 사용)
     current_market_data = {
         "fear_greed_index": fear_greed_index,
-        "news_headlines": news_headlines,
         "orderbook": orderbook,
         "daily_ohlcv": df_daily.to_dict(),
         "hourly_ohlcv": df_hourly.to_dict()
