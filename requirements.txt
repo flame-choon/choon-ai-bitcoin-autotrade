@@ -10,4 +10,4 @@ streamlit
 plotly
 mysql-connector-python
 cryptography
-pycryptodome
+boto3

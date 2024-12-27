@@ -138,34 +138,6 @@ def get_fear_and_greed_index():
     else:
         print(f"Failed to fetch Fear and Greed Index. Status code: {response.status_code}")
         return None
-    
-### SerpAPI를 이용하여 Bitcoin 관련 뉴스 헤드라인 조회
-def get_bitcoin_news():
-    serpapi_key = decrypt_env_value(os.getenv('SERPAPI_API_KEY'))
-    url = "https://serpapi.com/search.json"
-    params = {
-        "engine": "google_news",
-        "q": "btc",
-        "api_key": serpapi_key
-    }
-    
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()  # Raises a HTTPError if the status is 4xx, 5xx
-        data = response.json()
-        
-        news_results = data.get("news_results", [])
-        headlines = []
-        for item in news_results:
-            headlines.append({
-                "title": item.get("title", ""),
-                "date": item.get("date", "")
-            })
-        
-        return headlines[:5]  # 최신 5개의 뉴스 헤드라인만 반환
-    except requests.RequestException as e:
-        print(f"Error fetching news: {e}")
-        return []
 
 ### selenium에 사용할 옵션 설정
 def setup_chrome_options():
@@ -322,7 +294,7 @@ def generate_reflection(trades_df, current_market_data):
     performance = calculate_performance(trades_df)
     
     client = OpenAI(
-        api_key=decrypt_env_value(os.getenv('OPENAI_API_KEY'))
+        api_key=decrypt_env_value(os.getenv('OPENAI_API'))
     )
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -360,8 +332,8 @@ def generate_reflection(trades_df, current_market_data):
 ### 자동 트레이드 메서드
 def ai_trading():
     # Upbit 객체 생성
-    accessKey = decrypt_env_value(os.getenv("UPBIT_ACCESS_KEY"))
-    secretKey = decrypt_env_value(os.getenv("UPBIT_SECRET_KEY"))
+    accessKey = decrypt_env_value(os.getenv("UPBIT_ACCESS"))
+    secretKey = decrypt_env_value(os.getenv("UPBIT_SECRET"))
     upbit = pyupbit.Upbit(accessKey, secretKey)
 
     # 1. 현재 투자 상태 조회 (KRW, BTC 만 조회)
@@ -392,10 +364,7 @@ def ai_trading():
     # 4. 공포 탐욕 지수 가져오기
     fear_greed_index = get_fear_and_greed_index()
 
-    # 5. 뉴스 헤드라인 가져오기
-    news_headlines = get_bitcoin_news()
-
-    # 6. Selenum으로 Upbit KRW-BTC 차트 캡쳐 (1일봉, 볼린저밴드, 일목균형표 추가)
+    # 5. Selenum으로 Upbit KRW-BTC 차트 캡쳐 (1일봉, 볼린저밴드, 일목균형표 추가)
     driver = None
     try:
         driver = create_driver()
@@ -418,7 +387,9 @@ def ai_trading():
             driver.quit()
 
     # AI에게 데이터 제공하고 판단 받기
-    client = OpenAI()
+    client = OpenAI(
+        api_key=decrypt_env_value(os.environ.get("OPENAI_API"))
+    )
 
     response = client.chat.completions.create(
         model="gpt-4o",
