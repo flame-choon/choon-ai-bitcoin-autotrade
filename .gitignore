@@ -27,6 +27,7 @@ MANIFEST
 .env.local
 .venv
 env/
+autotrade/
 bitcoin/
 upbit/
 ENV/
