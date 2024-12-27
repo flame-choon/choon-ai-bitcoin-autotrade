@@ -1,6 +1,6 @@
 upbit*
 bitcoin_trades.db
-security_make.py
+**/security_make.py
 
 # Distribution / packaging
 .Python

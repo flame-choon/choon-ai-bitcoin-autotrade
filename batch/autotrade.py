@@ -40,6 +40,20 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+### 환경변수 로드
+def load_env():
+    env = os.getenv('PYTHON_ENV', sys.argv[1])
+    env_file = f'.env.{env}'
+
+    ### .env 파일에 저장되어 있는 환경변수 정보를 불러옴
+    load_dotenv(dotenv_path=env_file)
+    print(f"Current environment: {env}")
+
+    return env
+
+# 환경변수 로드
+env = load_env()
+
 ### AWS Parameter Store에 접근하여 암호화 키 가져오기
 boto3_session = boto3.Session(profile_name='choon')
 sts_client = boto3_session.client('sts')
@@ -55,20 +69,13 @@ assume_session = boto3.Session(
 )
 
 ssm_client = assume_session.client('ssm')
-parameter = ssm_client.get_parameter(Name='/local/key/fernet', WithDecryption=True)
+fernetParameter = ssm_client.get_parameter(Name=f'/{env}/key/fernet', WithDecryption=True)
+dbUrlParameter = ssm_client.get_parameter(Name=f'/{env}/db/url', WithDecryption=True)
+dbPasswordParameter = ssm_client.get_parameter(Name=f'/{env}/db/password', WithDecryption=True)
 
 ### 암호화 키 호출
-fernetKey = parameter['Parameter']['Value']
+fernetKey = fernetParameter['Parameter']['Value']
 fernet = Fernet(fernetKey.encode())
-
-### 환경변수 로드
-def load_env():
-    env = os.getenv('PYTHON_ENV', sys.argv[1])
-    env_file = f'.env.{env}'
-
-    ### .env 파일에 저장되어 있는 환경변수 정보를 불러옴
-    load_dotenv(dotenv_path=env_file)
-    print(f"Current environment: {env}")
 
 ### 환경변수 복호화
 def decrypt_env_value(encrypted_value):
@@ -77,9 +84,9 @@ def decrypt_env_value(encrypted_value):
 ### SQLite DB 연결
 def get_db_connection():
     return mysql.connector.connect(
-        host=decrypt_env_value(os.getenv('DATABASE_URL')),
+        host=decrypt_env_value(dbUrlParameter['Parameter']['Value']),
         user="application",
-        password="%Camui0110",
+        password=decrypt_env_value(dbPasswordParameter['Parameter']['Value']),
         database="bitcoin_trades"
     )
 
@@ -116,11 +123,9 @@ def init_db():
     return conn
 
 
-# 환경변수 로드
-load_env()
-
 # 데이터베이스 초기화
 init_db()
+
 
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
