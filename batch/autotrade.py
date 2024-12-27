@@ -1,9 +1,8 @@
-import boto3
-import os
-import sys
-from dotenv import load_dotenv
-from cryptography.fernet import Fernet
-import mysql.connector
+import init
+import aws
+import crypt
+import db
+import util.selenium as sn
 import pyupbit
 from openai import OpenAI
 import pandas as pd
@@ -13,22 +12,10 @@ from ta.utils import dropna
 import requests
 import logging
 import time
-import base64
-from PIL import Image
-import io
-import mysql
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.actions.wheel_input import ScrollOrigin
-from selenium.webdriver import ActionChains
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException, WebDriverException
+from selenium.common.exceptions import WebDriverException
+
 
 class TradingDecision(BaseModel):
     decision: str
@@ -39,93 +26,22 @@ class TradingDecision(BaseModel):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-### 환경변수 로드
-def load_env():
-    env = os.getenv('PYTHON_ENV', sys.argv[1])
-    env_file = f'.env.{env}'
-
-    ### .env 파일에 저장되어 있는 환경변수 정보를 불러옴
-    load_dotenv(dotenv_path=env_file)
-    print(f"Current environment: {env}")
-
-    return env
-
 # 환경변수 로드
-env = load_env()
+env = init.set_env()
+
+# AWS Assume Role로 접근
+assume_session = aws.get_assume_role()
 
 ### AWS Parameter Store에 접근하여 암호화 키 가져오기
-boto3_session = boto3.Session(profile_name='choon')
-sts_client = boto3_session.client('sts')
-assume_role_client = sts_client.assume_role(
-    RoleArn="arn:aws:iam::879780444466:role/choon-assume-role",
-    RoleSessionName="choon-session"
-)
-
-assume_session = boto3.Session(
-    aws_access_key_id=assume_role_client['Credentials']['AccessKeyId'],
-    aws_secret_access_key=assume_role_client['Credentials']['SecretAccessKey'],
-    aws_session_token=assume_role_client['Credentials']['SessionToken']
-)
-
-ssm_client = assume_session.client('ssm')
-fernetParameter = ssm_client.get_parameter(Name=f'/{env}/key/fernet', WithDecryption=True)
-dbUrlParameter = ssm_client.get_parameter(Name=f'/{env}/db/url', WithDecryption=True)
-dbPasswordParameter = ssm_client.get_parameter(Name=f'/{env}/db/password', WithDecryption=True)
+upbitAccessParameter = aws.get_parameter(assume_session, env, 'key/upbit-access')
+upbitSecretParameter = aws.get_parameter(assume_session, env, 'key/upbit-secret')
+openAIParameter = aws.get_parameter(assume_session, env, 'key/openai')
 
 ### 암호화 키 호출
-fernetKey = fernetParameter['Parameter']['Value']
-fernet = Fernet(fernetKey.encode())
-
-### 환경변수 복호화
-def decrypt_env_value(encrypted_value):
-    return fernet.decrypt(encrypted_value).decode()
-
-### SQLite DB 연결
-def get_db_connection():
-    return mysql.connector.connect(
-        host=decrypt_env_value(dbUrlParameter['Parameter']['Value']),
-        user="application",
-        password=decrypt_env_value(dbPasswordParameter['Parameter']['Value']),
-        database="bitcoin_trades"
-    )
-
-### DB 초기화
-def init_db():
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('''
-                CREATE TABLE IF NOT EXISTS trades (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    timestamp VARCHAR(255),
-                    decision VARCHAR(10),
-                    percentage INT,
-                    reason TEXT,
-                    btc_balance DECIMAL(18,8),
-                    krw_balance DECIMAL(18,2),
-                    btc_avg_buy_price DECIMAL(18,2),
-                    btc_krw_price DECIMAL(18,2),
-                    reflection TEXT
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-              ''')
-    # c.execute('''CREATE TABLE IF NOT EXISTS trades
-    #           (id INTEGER PRIMARY KEY AUTOINCREMENT,
-    #           timestamp TEXT,
-    #           decision TEXT,
-    #           percentage INTEGER,
-    #           reason TEXT,
-    #           btc_balance REAL,
-    #           krw_balance REAL,
-    #           btc_avg_buy_price REAL,
-    #           btc_krw_price REAL,
-    #           reflection TEXT)''')
-    conn.commit()
-    return conn
-
+crypt.init(assume_session, env)
 
 # 데이터베이스 초기화
-init_db()
-
+db.init_db(assume_session, env)
 
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
@@ -162,131 +78,6 @@ def get_fear_and_greed_index():
         print(f"Failed to fetch Fear and Greed Index. Status code: {response.status_code}")
         return None
 
-### selenium에 사용할 옵션 설정
-def setup_chrome_options():
-    chrome_options = Options()
-    chrome_options.add_argument("--start-maximized")
-    chrome_options.add_argument("--headless")  # 디버깅을 위해 헤드리스 모드 비활성화
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
-    return chrome_options
-
-### selenum에 사용할 크롬드라이버 설정
-def create_driver():
-    logger.info("ChromeDriver 설정 중...")
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=setup_chrome_options())
-    return driver
-
-### selenium을 이용하여 XPATH 기반으로 특정 요소를 선택
-def click_element_by_xpath(driver, xpath, element_name, wait_time=10):
-    try:
-        element = WebDriverWait(driver, wait_time).until(
-            EC.element_to_be_clickable((By.XPATH, xpath))
-        )
-        element.click()
-        logger.info(f"{element_name} 클릭 완료")
-        time.sleep(2)  # 클릭 후 잠시 대기
-    except TimeoutException:
-        logger.error(f"{element_name} 요소를 찾는 데 시간이 초과되었습니다.")
-    except ElementClickInterceptedException:
-        logger.error(f"{element_name} 요소를 클릭할 수 없습니다. 다른 요소에 가려져 있을 수 있습니다.")
-    except Exception as e:
-        logger.error(f"{element_name} 클릭 중 오류 발생: {e}")
-
-### selenium을 이용하여 Upbit KRW-BTC 의 차트 요소들 선택 (1일봉 , 볼린저 밴드, 일목균형표)
-def perform_chart_actions(driver):
-    # 시간 메뉴 클릭
-    click_element_by_xpath(
-        driver,
-        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[1]/span",
-        "시간 메뉴"
-    )
-    
-    # 일 옵션 선택
-    click_element_by_xpath(
-        driver,
-        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[1]/cq-menu-dropdown/cq-item[10]",
-        "일 옵션"
-    )
-    
-    # 지표 메뉴 클릭
-    click_element_by_xpath(
-        driver,
-        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/span",
-        "지표 메뉴"
-    )
-
-    # 볼린저 밴드 옵션 선택
-    click_element_by_xpath(
-        driver,
-        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/cq-menu-dropdown/cq-scroll/cq-studies/cq-studies-content/cq-item[15]",
-        "볼린저 밴드 옵션"
-    )
-
-    # 지표 메뉴 클릭
-    click_element_by_xpath(
-        driver,
-        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/span",
-        "지표 메뉴"
-    )
-
-    # 지표 메뉴 스크롤 이동
-    element = driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/cq-menu-dropdown/cq-scroll/div[2]")
-    scroll_origin = ScrollOrigin.from_element(element)
-    ActionChains(driver)\
-        .scroll_from_origin(scroll_origin, 0, 700)\
-        .perform()
-    
-    # 일목균형표 옵션 선택
-    click_element_by_xpath(
-        driver,
-        "/html/body/div[1]/div[2]/div[3]/span/div/div/div[1]/div/div/cq-menu[3]/cq-menu-dropdown/cq-scroll/cq-studies/cq-studies-content/cq-item[44]",
-        "일목균형표 옵션"
-    )
-
-### selenium을 이용하여 캡쳐한 이미지를 Open AI Vision API 호출을 위한 base64로 변환
-def capture_and_encode_screenshot(driver):
-    try:
-        # 스크린샷 캡쳐
-        png = driver.get_screenshot_as_png()
-
-        # PIL Image로 변환
-        img = Image.open(io.BytesIO(png))
-
-        # 이미지 리사이즈 (OpenAI API 제한에 맞춤)
-        img.thumbnail((2000, 2000))
-
-        # 현재 시간을 파일명에 포함
-        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"upbit_chart_{current_time}.png"
-
-        # 현재 스크립트의 경로를 가져옴
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-
-        # 파일 저장 경로 설정
-        file_path = os.path.join(script_dir, filename)
-
-        # 이미지 파일로 저장
-        img.save(file_path)
-        logger.info(f"스크린샷이 저장되었습니다 : {file_path}")
-
-        # 이미지를 바이트로 변환
-        buffered = io.BytesIO()
-        img.save(buffered, format="PNG")
-
-        # base64로 인코딩
-        base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
-
-        return base64_image, file_path
-    
-    except Exception as e:
-        logger.error(f"스크린샷 캡처 및 인코딩 중 오류 발생: {e}")
-        return None, None
-
-
 ### DB에 거래 정보 로깅 
 def log_trade(conn, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price, reflection=''):
     c = conn.cursor()
@@ -317,7 +108,7 @@ def generate_reflection(trades_df, current_market_data):
     performance = calculate_performance(trades_df)
     
     client = OpenAI(
-        api_key=decrypt_env_value(os.getenv('OPENAI_API'))
+        api_key=crypt.decrypt_env_value(openAIParameter)
     )
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -355,8 +146,8 @@ def generate_reflection(trades_df, current_market_data):
 ### 자동 트레이드 메서드
 def ai_trading():
     # Upbit 객체 생성
-    accessKey = decrypt_env_value(os.getenv("UPBIT_ACCESS"))
-    secretKey = decrypt_env_value(os.getenv("UPBIT_SECRET"))
+    accessKey = crypt.decrypt_env_value(upbitAccessParameter)
+    secretKey = crypt.decrypt_env_value(upbitSecretParameter)
     upbit = pyupbit.Upbit(accessKey, secretKey)
 
     # 1. 현재 투자 상태 조회 (KRW, BTC 만 조회)
@@ -390,14 +181,14 @@ def ai_trading():
     # 5. Selenum으로 Upbit KRW-BTC 차트 캡쳐 (1일봉, 볼린저밴드, 일목균형표 추가)
     driver = None
     try:
-        driver = create_driver()
+        driver = sn.create_driver()
         driver.get("https://upbit.com/full_chart?code=CRIX.UPBIT.KRW-BTC")
         logger.info("Upbit KRW-BTC 페이지 로드 완료")
         time.sleep(10) # 네트워크 환경 고려하여 페이지 로딩 대기 시간
         logger.info("차트 작업 시작")
-        perform_chart_actions(driver)
+        sn.perform_chart_actions(driver)
         logger.info("차트 작업 완료")
-        chart_image, saved_file_path = capture_and_encode_screenshot(driver)
+        chart_image, saved_file_path = sn.capture_and_encode_screenshot(driver)
         logger.info(f"스크린 샷 캡쳐 완료. 저장된 파일 경로: {saved_file_path}")
     except WebDriverException as e:
         logger.error(f"WebDriver 오류 발생 : {e}")
@@ -411,7 +202,7 @@ def ai_trading():
 
     # AI에게 데이터 제공하고 판단 받기
     client = OpenAI(
-        api_key=decrypt_env_value(os.environ.get("OPENAI_API"))
+        api_key=crypt.decrypt_env_value(openAIParameter)
     )
 
     response = client.chat.completions.create(
@@ -481,7 +272,9 @@ def ai_trading():
     result = TradingDecision.model_validate_json(response.choices[0].message.content)
 
     # 데이터 베이스 연결
-    conn = get_db_connection()
+    dbUrlParameter = aws.get_parameter(assume_session, env, 'db/url')
+    dbPasswordParameter = aws.get_parameter(assume_session, env, 'db/password')
+    conn = db.get_db_connection(dbUrlParameter, dbPasswordParameter)
 
     # 최근 거래 내역 가져오기
     recent_trades = get_recent_trades(conn)
