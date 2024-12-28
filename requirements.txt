@@ -1,15 +1,2 @@
-python-dotenv
-pydantic-settings
-openai
-pyupbit
-ta
-selenium
-webdriver-manager
-Pillow
 streamlit
 plotly
-mysql-connector-python
-cryptography
-boto3
-fastapi
-uvicorn
