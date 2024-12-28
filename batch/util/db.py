@@ -1,7 +1,7 @@
 import mysql.connector
 import mysql
-import aws
-import crypt
+import util.aws as aws
+import util.crypt as crypt
 
 ### SQLite DB 연결
 def get_db_connection(dbUrlParameter, dbPasswordParameter):

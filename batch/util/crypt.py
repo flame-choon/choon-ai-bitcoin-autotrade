@@ -1,5 +1,5 @@
 from cryptography.fernet import Fernet
-import aws
+import util.aws as aws
 
 ### 암호화 라이브러리 (Fernet) 초기화 
 def init(assume_session, env):

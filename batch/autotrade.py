@@ -1,7 +1,7 @@
-import init
-import aws
-import crypt
-import db
+import util.init as init
+import util.aws as aws
+import util.crypt as crypt
+import util.db as db
 import util.selenium as sn
 import pyupbit
 from openai import OpenAI
