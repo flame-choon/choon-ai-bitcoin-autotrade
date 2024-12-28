@@ -1,0 +1,12 @@
+python-dotenv
+pydantic-settings
+openai
+pyupbit
+ta
+selenium
+webdriver-manager
+Pillow
+mysql-connector-python
+cryptography
+boto3
+schedule

@@ -4,6 +4,7 @@ import util.crypt as crypt
 import util.db as db
 import util.selenium as sn
 import pyupbit
+import schedule
 from openai import OpenAI
 import pandas as pd
 import json
@@ -145,6 +146,7 @@ def generate_reflection(trades_df, current_market_data):
 
 ### 자동 트레이드 메서드
 def ai_trading():
+
     # Upbit 객체 생성
     accessKey = crypt.decrypt_env_value(upbitAccessParameter)
     secretKey = crypt.decrypt_env_value(upbitSecretParameter)
@@ -335,4 +337,11 @@ def ai_trading():
 
     conn.close()
 
-ai_trading()
+
+schedule.every(3).minutes.do(ai_trading)
+# schedule.every().day.at("8:00").do(ai_trading)
+# schedule.every().day.at("20:00").do(ai_trading)
+
+while 1:
+    schedule.run_pending()
+    time.sleep(1)
