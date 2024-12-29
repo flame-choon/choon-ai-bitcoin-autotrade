@@ -45,7 +45,7 @@ crypt.init(assume_session, env)
 db.init_db(assume_session, env)
 
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
-### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
+### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선
 def add_indicators(df):
     # 볼린저 밴드
     indicator_bb = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
@@ -61,11 +61,11 @@ def add_indicators(df):
     df['macd'] = macd.macd()
     df['macd_signal'] = macd.macd_signal()
     df['macd_diff'] = macd.macd_diff()
-    
+
     # 이동평균선
     df['sma_20'] = ta.trend.SMAIndicator(close=df['close'], window=20).sma_indicator()
     df['ema_12'] = ta.trend.EMAIndicator(close=df['close'], window=12).ema_indicator()
-    
+
     return df
 
 ### 공포 탐욕 지수 API 호출
@@ -79,12 +79,12 @@ def get_fear_and_greed_index():
         print(f"Failed to fetch Fear and Greed Index. Status code: {response.status_code}")
         return None
 
-### DB에 거래 정보 로깅 
+### DB에 거래 정보 로깅
 def log_trade(conn, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price, reflection=''):
     c = conn.cursor()
     timestamp = datetime.now().isoformat()
-    c.execute("""INSERT INTO trades 
-                 (timestamp, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price, reflection) 
+    c.execute("""INSERT INTO trades
+                 (timestamp, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price, reflection)
                  VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
               (timestamp, decision, percentage, reason, btc_balance, krw_balance, btc_avg_buy_price, btc_krw_price, reflection))
     conn.commit()
@@ -99,15 +99,15 @@ def get_recent_trades(conn, days=7):
 def calculate_performance(trades_df):
     if trades_df.empty:
         return 0
-    
+
     initial_balance = trades_df.iloc[-1]['krw_balance'] + trades_df.iloc[-1]['btc_balance'] * trades_df.iloc[-1]['btc_krw_price']
     final_balance = trades_df.iloc[0]['krw_balance'] + trades_df.iloc[0]['btc_balance'] * trades_df.iloc[0]['btc_krw_price']
-    
+
     return (final_balance - initial_balance) / initial_balance * 100
 
 def generate_reflection(trades_df, current_market_data):
     performance = calculate_performance(trades_df)
-    
+
     client = OpenAI(
         api_key=crypt.decrypt_env_value(openAIParameter)
     )
@@ -123,24 +123,23 @@ def generate_reflection(trades_df, current_market_data):
                 "content": f"""
                 Recent trading data:
                 {trades_df.to_json(orient='records')}
-                
+
                 Current market data:
                 {current_market_data}
-                
-                Overall performance in the last 7 days: {performance:.2f}%
-                
+               Overall performance in the last 7 days: {performance:.2f}%
+
                 Please analyze this data and provide:
                 1. A brief reflection on the recent trading decisions
                 2. Insights on what worked well and what didn't
                 3. Suggestions for improvement in future trading decisions
                 4. Any patterns or trends you notice in the market data
-                
+
                 Limit your response to 250 words or less.
                 """
             }
         ]
     )
-    
+
     return response.choices[0].message.content
 
 
@@ -165,9 +164,9 @@ def ai_trading():
     # 30일 일봉 데이터
     df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=30)
     # NaN 값 제거
-    df_daily = dropna(df_daily)     
+    df_daily = dropna(df_daily)
     df_daily = add_indicators(df_daily)
-    
+
     # 24시간 시간봉 데이터
     df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=24)
     # NaN 값 제거
@@ -180,7 +179,7 @@ def ai_trading():
     # 4. 공포 탐욕 지수 가져오기
     fear_greed_index = get_fear_and_greed_index()
 
-    # 5. Selenum으로 Upbit KRW-BTC 차트 캡쳐 (1일봉, 볼린저밴드, 일목균형표 추가)
+   # 5. Selenum으로 Upbit KRW-BTC 차트 캡쳐 (1일봉, 볼린저밴드, 일목균형표 추가)
     driver = None
     try:
         driver = sn.create_driver()
@@ -218,14 +217,14 @@ def ai_trading():
                 - The Fear and Greed Index and its implications
                 - Overall market sentiment
                 - The patterns and trends visible in the chart image
-                
+
                 Respond with:
                 1. A decision (buy, sell, or hold)
                 2. If the decision is 'buy', provide a percentage (1-100) of available KRW to use for buying.
                 If the decision is 'sell', provide a percentage (1-100) of held BTC to sell.
                 If the decision is 'hold', set the percentage to 0.
                 3. A reason for your decision
-                
+
                 Ensure that the percentage is an integer between 1 and 100 for buy/sell decisions, and exactly 0 for hold decisions.
                 Your percentage should reflect the strength of your conviction in the decision based on the analyzed data."""
             },
@@ -244,7 +243,7 @@ def ai_trading():
                         "type": "image_url",
                         "image_url": {
                             "url": f"data:image/png;base64,{chart_image}"
-                        }                        
+                        }
                     }
                 ]
             }
@@ -322,7 +321,7 @@ def ai_trading():
             print("### Sell Order Failed: Insufficient BTC (less than 5000 KRW worth) ###")
     elif result.decision == "hold":
         print("### Hold Position ###")
-    
+
     # 거래 실행 여부와 관계없이 현재 잔고 조회
     time.sleep(1) # API 호출 제한을 고려하여 잠시 대기
     balances = upbit.get_balances()
@@ -332,7 +331,7 @@ def ai_trading():
     current_btc_price = pyupbit.get_current_price("KRW-BTC")
 
     # 거래 정보 로깅
-    log_trade(conn, result.decision, result.percentage if order_executed else 0, result.reason, 
+    log_trade(conn, result.decision, result.percentage if order_executed else 0, result.reason,
               btc_balance, krw_balance, btc_avg_buy_price, current_btc_price, reflection)
 
     conn.close()
