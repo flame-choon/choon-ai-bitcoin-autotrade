@@ -338,7 +338,7 @@ def ai_trading():
 
 
 schedule.every(3).minutes.do(ai_trading)
-# schedule.every().day.at("8:00").do(ai_trading)
+# schedule.every().day.at("08:00").do(ai_trading)
 # schedule.every().day.at("20:00").do(ai_trading)
 
 while 1:
