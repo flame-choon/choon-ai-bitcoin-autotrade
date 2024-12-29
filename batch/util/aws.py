@@ -1,5 +1,7 @@
 import boto3
 
+AWS_DEFAULT_REGION = "ap-northeast-2"
+
 ### AWS Assume 권한 획득
 def get_assume_role():
     boto3_session = boto3.Session(profile_name='choon')
@@ -12,7 +14,8 @@ def get_assume_role():
     assume_session = boto3.Session(
         aws_access_key_id=assume_role_client['Credentials']['AccessKeyId'],
         aws_secret_access_key=assume_role_client['Credentials']['SecretAccessKey'],
-        aws_session_token=assume_role_client['Credentials']['SessionToken']
+        aws_session_token=assume_role_client['Credentials']['SessionToken'],
+        region_name=AWS_DEFAULT_REGION
     )
 
     return assume_session
