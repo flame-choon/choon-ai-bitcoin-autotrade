@@ -1,10 +1,10 @@
 python-dotenv
-pydantic-settings
+# pydantic-settings
 openai
 pyupbit
 ta
-selenium
-webdriver-manager
+# selenium
+# webdriver-manager
 Pillow
 mysql-connector-python
 cryptography

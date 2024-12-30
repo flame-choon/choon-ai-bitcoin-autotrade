@@ -2,7 +2,6 @@ import util.init as init
 import util.aws as aws
 import util.crypt as crypt
 import util.db as db
-import util.selenium as sn
 import pyupbit
 import schedule
 import re
@@ -16,7 +15,8 @@ import logging
 import time
 from pydantic import BaseModel
 from datetime import datetime, timedelta
-from selenium.common.exceptions import WebDriverException
+# import util.selenium as sn
+# from selenium.common.exceptions import WebDriverException
 
 
 class TradingDecision(BaseModel):
