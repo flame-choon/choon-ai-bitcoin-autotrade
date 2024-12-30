@@ -66,31 +66,20 @@ def add_indicators(df):
     # 이동평균선 (단기, 장기)
     df['sma_20'] = ta.trend.SMAIndicator(close=df['close'], window=20).sma_indicator()
     df['ema_12'] = ta.trend.EMAIndicator(close=df['close'], window=12).ema_indicator()
-    
-    # Stochastic Oscillator 추가
-    stoch = ta.momentum.StochasticOscillator(
-        high=df['high'], low=df['low'], close=df['close'], window=14, smooth_window=3
-    )
-    df['stoch_k'] = stoch.stoch()
-    df['stoch_d'] = stoch.stoch_signal()
 
-    # Average True Range (ATR) 추가
-    df['atr'] = ta.volatility.AverageTrueRange(
-        high=df['high'], low=df['low'], close=df['close'], window=14
-    ).average_true_range()
+    #  # Stochastic Oscillator 추가
+    # stoch = ta.momentum.StochasticOscillator(
+    #     high=df['high'], low=df['low'], close=df['close'], window=14, smooth_window=3)
+    # df['stoch_k'] = stoch.stoch()
+    # df['stoch_d'] = stoch.stoch_signal()
     
-    # On-Balance Volume (OBV) 추가
-    df['obv'] = ta.volume.OnBalanceVolumeIndicator(
-        close=df['close'], volume=df['volume']
-    ).on_balance_volume()
-
     return df
 
 ### 공포 탐욕 지수 API 호출
 def get_fear_and_greed_index():
     url = "https://api.alternative.me/fng/"
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=10, verify=False)
         response.raise_for_status()
         data = response.json()
         return data['data'][0]
@@ -137,13 +126,13 @@ def generate_reflection(trades_df, current_market_data):
     if not client.api_key:
         logger.error("OpenAI API key is missing or invalid.")
         return None
-    
+        
     # OpenAI API 호출로 AI의 반성 일기 및 개선 사항 생성 요청
     response = client.chat.completions.create(
-        model="o1-preview",
+        model="gpt-4o-2024-08-06",
         messages=[
             {
-                "role": "user",
+                "role": "system",
                 "content": "You are an AI trading assistant tasked with analyzing recent trading performance and current market conditions to generate insights and improvements for future trading decisions."
             },
             {
@@ -168,13 +157,15 @@ def generate_reflection(trades_df, current_market_data):
             }
         ]
     )
+    
+    return response.choices[0].message.content
 
-    try:
-        response_content = response.choices[0].message.content
-        return response_content
-    except (IndexError, AttributeError) as e:
-        logger.error(f"Error extracting response content: {e}")
-        return None
+    # try:
+    #     response_content = response.choices[0].message.content
+    #     return response_content
+    # except (IndexError, AttributeError) as e:
+    #     logger.error(f"Error extracting response content: {e}")
+    #     return None
 
 
 ### 자동 트레이드 메서드
@@ -259,8 +250,10 @@ def ai_trading():
         "hourly_ohlcv": df_hourly.to_dict()
     }
 
-    # 반성 및 개선 내용 생성
+    # # 반성 및 개선 내용 생성
     reflection = generate_reflection(recent_trades, current_market_data)
+
+    # logger.info(reflection)
 
     # AI 모델에 반성 내용 제공
     # Few-shot prompting으로 JSON 예시 추가
@@ -292,7 +285,6 @@ def ai_trading():
 
     response = client.chat.completions.create(
         model="o1-preview",
-        max_tokens=30000,
         messages=[
             {
                 "role": "user",
@@ -391,12 +383,12 @@ def ai_trading():
     elif decision == "sell":
         my_btc = upbit.get_balance("KRW-BTC")
         if my_btc is None:
-            logger.error("Failed to retrive BTC balance.")
+            logger.error("Failed to retrieve BTC balance.")
             return
         sell_amount = my_btc * (percentage / 100)
-        current_price = pyupbit.get_orderbook(ticker="KRW-BTC")
+        current_price = pyupbit.get_current_price("KRW-BTC")
         if sell_amount * current_price > 5000:
-            logger.info(f"### Sell Order Executed : {percentage}% of held BTC ###")
+            logger.info(f"Sell Order Executed: {percentage}% of held BTC")
             try:
                 order = upbit.sell_market_order("KRW-BTC", sell_amount)
                 if order:
@@ -426,11 +418,12 @@ def ai_trading():
 
     conn.close()
 
+ai_trading()
 
-schedule.every(3).minutes.do(ai_trading)
-# schedule.every().day.at("8:00").do(ai_trading)
-# schedule.every().day.at("20:00").do(ai_trading)
+# schedule.every(3).minutes.do(ai_trading)
+# # schedule.every().day.at("8:00").do(ai_trading)
+# # schedule.every().day.at("20:00").do(ai_trading)
 
-while 1:
-    schedule.run_pending()
-    time.sleep(1)
+# while 1:
+#     schedule.run_pending()
+#     time.sleep(1)
