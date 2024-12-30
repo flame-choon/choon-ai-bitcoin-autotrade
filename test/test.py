@@ -13,10 +13,12 @@ assume_session = boto3.Session(
     aws_session_token=assume_role_client['Credentials']['SessionToken']
 )
 
-ssm_client = assume_session.client('ssm')
-parameter = ssm_client.get_parameter(Name='/local/key/fernet', WithDecryption=True)
+# ssm_client = assume_session.client('ssm')
+# parameter = ssm_client.get_parameter(Name='/local/key/fernet', WithDecryption=True)
 
-print(parameter['Parameter']['Value'])
+# print(parameter['Parameter']['Value'])
+
+
 
 # def load_env():
 
