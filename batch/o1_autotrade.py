@@ -79,7 +79,7 @@ def add_indicators(df):
 def get_fear_and_greed_index():
     url = "https://api.alternative.me/fng/"
     try:
-        response = requests.get(url, timeout=10, verify=False)
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
         return data['data'][0]
@@ -418,12 +418,11 @@ def ai_trading():
 
     conn.close()
 
-ai_trading()
 
 # schedule.every(3).minutes.do(ai_trading)
-# # schedule.every().day.at("8:00").do(ai_trading)
-# # schedule.every().day.at("20:00").do(ai_trading)
+schedule.every().day.at("11:00").do(ai_trading)
+schedule.every().day.at("23:00").do(ai_trading)
 
-# while 1:
-#     schedule.run_pending()
-#     time.sleep(1)
+while 1:
+    schedule.run_pending()
+    time.sleep(1)

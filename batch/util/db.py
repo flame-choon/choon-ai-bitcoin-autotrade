@@ -5,6 +5,8 @@ import util.crypt as crypt
 
 ### SQLite DB 연결
 def get_db_connection(dbUrlParameter, dbPasswordParameter):
+    print(crypt.decrypt_env_value(dbUrlParameter))
+
     return mysql.connector.connect(
         host=crypt.decrypt_env_value(dbUrlParameter),
         user="application",
