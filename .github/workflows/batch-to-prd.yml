@@ -27,17 +27,17 @@ jobs:
           id: login-ecr
           uses: aws-actions/amazon-ecr-login@v2
 
-        - name: Build and push Docker image
-          id: build-image
-          env:
-            ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-            ECR_REPOSITORY: choon-autotrade
-            IMAGE_TAG: latest
-          run: |
-            cd batch
-            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-            echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+        # - name: Build and push Docker image
+        #   id: build-image
+        #   env:
+        #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        #     ECR_REPOSITORY: choon-autotrade
+        #     IMAGE_TAG: latest
+        #   run: |
+        #     cd batch
+        #     docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        #     docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        #     echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
         - name: Deploy to EC2 (using AWS SSM)
           uses: zip-go/aws-ssm-action@v1.0.0
@@ -48,6 +48,10 @@ jobs:
                 aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}/choon-autotrade
                 docker stop choon-autotrade              
                 docker rm choon-autotrade
-                docker rmi ${{ steps.build-image.outputs.image }}
-                docker pull ${{ steps.build-image.outputs.image }}
-                docker run -d --name choon-autotrade -v ~/.aws:/root/.aws -e PYTHON_ENV=prd ${{ steps.build-image.outputs.image }}
+                docker rmi 879780444466.dkr.ecr.ap-northeast-2.amazonaws.com/choon-autotrade:latest
+                docker pull 879780444466.dkr.ecr.ap-northeast-2.amazonaws.com/choon-autotrade:latest
+                docker run -d --name choon-autotrade -v ~/.aws:/root/.aws -e PYTHON_ENV=prd 879780444466.dkr.ecr.ap-northeast-2.amazonaws.com/choon-autotrade:latest > test
+
+
+# docker rmi ${{ steps.build-image.outputs.image }}
+# docker pull ${{ steps.build-image.outputs.image }}
