@@ -43,5 +43,5 @@ jobs:
             instanceName: choon-autotrade-instance
             workingDirectory: /home/ec2-user
             commands: |
-                echo "Hello World"
+                echo "Hello World" > test
                 ls -la
