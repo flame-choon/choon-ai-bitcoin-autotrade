@@ -45,7 +45,7 @@ jobs:
             instanceName: choon-autotrade-instance
             workingDirectory: /home/ec2-user
             commands: |
-                aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 879780444466.dkr.ecr.ap-northeast-2.amazonaws.com/choon-autotrade
+                aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 879780444466.dkr.ecr.ap-northeast-2.amazonaws.com/choon-autotrade > test
 
 
 
