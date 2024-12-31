@@ -117,7 +117,7 @@ def calculate_performance(trades_df):
     return (final_balance - initial_balance) / initial_balance * 100
 
 # AI 모델을 사용하여 최근 투자 기록과 시장 데이터를 기반으로 분석 및 반성을 생성하는 함수
-def generate_reflection(trades_df, current_market_data):
+def generate_reflection(trades_df, current_market_data, openAIParameter):
     performance = calculate_performance(trades_df)  # 투자 퍼포먼스 계산
     
     client = OpenAI(
@@ -264,7 +264,7 @@ def ai_trading():
     }
 
     # # 반성 및 개선 내용 생성
-    reflection = generate_reflection(recent_trades, current_market_data)
+    reflection = generate_reflection(recent_trades, current_market_data, openAIParameter)
 
     # logger.info(reflection)
 
@@ -432,9 +432,9 @@ def ai_trading():
     conn.close()
 
 
-# schedule.every(3).minutes.do(ai_trading)
-schedule.every().day.at("11:00").do(ai_trading)
-schedule.every().day.at("23:00").do(ai_trading)
+schedule.every(3).minutes.do(ai_trading)
+# schedule.every().day.at("11:00").do(ai_trading)
+# schedule.every().day.at("23:00").do(ai_trading)
 
 while 1:
     schedule.run_pending()
