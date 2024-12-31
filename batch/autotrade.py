@@ -146,6 +146,8 @@ def generate_reflection(trades_df, current_market_data):
 ### 자동 트레이드 메서드
 def ai_trading():
 
+    assume_session = aws.get_assume_role()
+
     # Upbit 객체 생성
     accessKey = crypt.decrypt_env_value(upbitAccessParameter)
     secretKey = crypt.decrypt_env_value(upbitSecretParameter)
