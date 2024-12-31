@@ -36,3 +36,12 @@ jobs:
             cd batch
             docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+        - name: Deploy to EC2 (using AWS SSM)
+          uses: zip-go/aws-ssm-action@v1.0.0
+          with:
+            instanceName: choon-autotrade-instance
+            workingDirectory: /home/ec2-user
+            commands: |
+                echo "Hello World"
+                ls -la
