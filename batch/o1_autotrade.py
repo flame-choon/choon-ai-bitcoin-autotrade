@@ -432,9 +432,9 @@ def ai_trading():
     conn.close()
 
 
-schedule.every(3).minutes.do(ai_trading)
-# schedule.every().day.at("11:00").do(ai_trading)
-# schedule.every().day.at("23:00").do(ai_trading)
+# schedule.every(3).minutes.do(ai_trading)
+schedule.every().day.at("11:00").do(ai_trading)
+schedule.every().day.at("23:00").do(ai_trading)
 
 while 1:
     schedule.run_pending()
