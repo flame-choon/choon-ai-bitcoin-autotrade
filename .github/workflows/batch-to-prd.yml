@@ -45,7 +45,6 @@ jobs:
             instanceName: choon-autotrade-instance
             workingDirectory: /home/ec2-user
             commands: |
-                aws sts assume-role --role-arn arn:aws:iam::879780444466:role/choon-assume-role --role-session-name local --profile choon
                 aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin 879780444466.dkr.ecr.ap-northeast-2.amazonaws.com/choon-autotrade
 
 
