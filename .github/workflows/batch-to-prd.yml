@@ -27,15 +27,15 @@ jobs:
           id: login-ecr
           uses: aws-actions/amazon-ecr-login@v2
 
-        - name: Build and push Docker image
-          env:
-            ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-            ECR_REPOSITORY: choon-autotrade
-            IMAGE_TAG: latest
-          run: |
-            cd batch
-            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        # - name: Build and push Docker image
+        #   env:
+        #     ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        #     ECR_REPOSITORY: choon-autotrade
+        #     IMAGE_TAG: latest
+        #   run: |
+        #     cd batch
+        #     docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        #     docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
         - name: Deploy to EC2 (using AWS SSM)
           uses: zip-go/aws-ssm-action@v1.0.0
