@@ -33,5 +33,6 @@ jobs:
             ECR_REPOSITORY: choon-autotrade
             IMAGE_TAG: latest
           run: |
+            cd batch
             docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
