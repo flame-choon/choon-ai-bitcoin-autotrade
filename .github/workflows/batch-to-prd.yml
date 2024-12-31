@@ -45,6 +45,7 @@ jobs:
             instanceName: choon-autotrade-instance
             workingDirectory: /home/ec2-user
             commands: |
+                docker pull ${{ steps.build-image.outputs.image }}
                 docker stop choon-autotrade || true
                 docker rm choon-autotrade || true
                 docker run -d --name choon-autotrade -v ~/.aws:/root/.aws -e PYTHON_ENV=prd ${{ steps.build-image.outputs.image }}
