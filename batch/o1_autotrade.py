@@ -19,10 +19,10 @@ from datetime import datetime, timedelta
 # from selenium.common.exceptions import WebDriverException
 
 
-class TradingDecision(BaseModel):
-    decision: str
-    percentage: int
-    reason: str
+# class TradingDecision(BaseModel):
+#     decision: str
+#     percentage: int
+#     reason: str
 
 ### 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -31,19 +31,19 @@ logger = logging.getLogger(__name__)
 # 환경변수 로드
 env = init.set_env()
 
-# AWS Assume Role로 접근
-assume_session = aws.get_assume_role()
+# # AWS Assume Role로 접근
+# assume_session = aws.get_assume_role()
 
-### AWS Parameter Store에 접근하여 암호화 키 가져오기
-upbitAccessParameter = aws.get_parameter(assume_session, env, 'key/upbit-access')
-upbitSecretParameter = aws.get_parameter(assume_session, env, 'key/upbit-secret')
-openAIParameter = aws.get_parameter(assume_session, env, 'key/openai')
+# ### AWS Parameter Store에 접근하여 암호화 키 가져오기
+# upbitAccessParameter = aws.get_parameter(assume_session, env, 'key/upbit-access')
+# upbitSecretParameter = aws.get_parameter(assume_session, env, 'key/upbit-secret')
+# openAIParameter = aws.get_parameter(assume_session, env, 'key/openai')
 
-### 암호화 키 호출
-crypt.init(assume_session, env)
+# ### 암호화 키 호출
+# crypt.init(assume_session, env)
 
-# 데이터베이스 초기화
-db.init_db(assume_session, env)
+# # 데이터베이스 초기화
+# db.init_db(assume_session, env)
 
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
@@ -170,7 +170,20 @@ def generate_reflection(trades_df, current_market_data):
 
 ### 자동 트레이드 메서드
 def ai_trading():
-    global upbit
+
+    # AWS Assume Role로 접근
+    assume_session = aws.get_assume_role()
+
+    ### AWS Parameter Store에 접근하여 암호화 키 가져오기
+    upbitAccessParameter = aws.get_parameter(assume_session, env, 'key/upbit-access')
+    upbitSecretParameter = aws.get_parameter(assume_session, env, 'key/upbit-secret')
+    openAIParameter = aws.get_parameter(assume_session, env, 'key/openai')
+
+    ### 암호화 키 호출
+    crypt.init(assume_session, env)
+
+    # 데이터베이스 초기화
+    db.init_db(assume_session, env)
 
     # Upbit 객체 생성
     accessKey = crypt.decrypt_env_value(upbitAccessParameter)
