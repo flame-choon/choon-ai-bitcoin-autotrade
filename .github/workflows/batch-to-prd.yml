@@ -10,7 +10,7 @@ permissions:
 
 jobs:
     deploy:
-        runs-on: ubuntu-arm64
+        runs-on: ubuntu-latest
 
         steps:
         - name: Checkout code
