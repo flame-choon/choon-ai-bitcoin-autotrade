@@ -42,7 +42,7 @@ jobs:
         - name: Deploy to EC2 (using AWS SSM)
           uses: zip-go/aws-ssm-action@v1.0.0
           with:
-            instanceName: choon-autotrade-instance
+            instanceName: choon-autotrade
             workingDirectory: /home/ec2-user
             commands: |
                 aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin  ${{ steps.login-ecr.outputs.registry }}/choon-autotrade
