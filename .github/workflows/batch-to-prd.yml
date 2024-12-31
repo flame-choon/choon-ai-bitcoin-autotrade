@@ -14,7 +14,7 @@ jobs:
 
         steps:
         - name: Checkout code
-          uses: actions/checkout@v3
+          uses: actions/checkout@v4
         
         - name: Configure AWS Credentials
           uses: aws-actions/configure-aws-credentials@v4
@@ -22,3 +22,16 @@ jobs:
             aws-region: ap-northeast-2
             role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
             role-session-name: GitHubActionsSession
+
+        - name: Login to Amazon ECR
+          id: login-ecr
+          uses: aws-actions/amazon-ecr-login@v2
+
+        - name: Build and push Docker image
+          env:
+            ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+            ECR_REPOSITORY: choon-autotrade
+            IMAGE_TAG: latest
+          run: |
+            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
