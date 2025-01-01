@@ -13,16 +13,7 @@ from ta.utils import dropna
 import requests
 import logging
 import time
-from pydantic import BaseModel
 from datetime import datetime, timedelta
-# import util.selenium as sn
-# from selenium.common.exceptions import WebDriverException
-
-
-# class TradingDecision(BaseModel):
-#     decision: str
-#     percentage: int
-#     reason: str
 
 ### 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -30,20 +21,6 @@ logger = logging.getLogger(__name__)
 
 # 환경변수 로드
 env = init.set_env()
-
-# # AWS Assume Role로 접근
-# assume_session = aws.get_assume_role()
-
-# ### AWS Parameter Store에 접근하여 암호화 키 가져오기
-# upbitAccessParameter = aws.get_parameter(assume_session, env, 'key/upbit-access')
-# upbitSecretParameter = aws.get_parameter(assume_session, env, 'key/upbit-secret')
-# openAIParameter = aws.get_parameter(assume_session, env, 'key/openai')
-
-# ### 암호화 키 호출
-# crypt.init(assume_session, env)
-
-# # 데이터베이스 초기화
-# db.init_db(assume_session, env)
 
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
@@ -129,7 +106,7 @@ def generate_reflection(trades_df, current_market_data, openAIParameter):
         
     # OpenAI API 호출로 AI의 반성 일기 및 개선 사항 생성 요청
     response = client.chat.completions.create(
-        model="gpt-4o-2024-08-06",
+        model="gpt-4o",
         messages=[
             {
                 "role": "system",
@@ -159,13 +136,6 @@ def generate_reflection(trades_df, current_market_data, openAIParameter):
     )
     
     return response.choices[0].message.content
-
-    # try:
-    #     response_content = response.choices[0].message.content
-    #     return response_content
-    # except (IndexError, AttributeError) as e:
-    #     logger.error(f"Error extracting response content: {e}")
-    #     return None
 
 
 ### 자동 트레이드 메서드
@@ -211,33 +181,11 @@ def ai_trading():
     df_hourly = add_indicators(df_hourly)
 
     # 최근 데이터만 사용하도록 설정 (메모리 절약)
-    df_daily_recent = df_daily.tail(30)
-    df_hourly_recent = df_hourly.tail(24)
+    df_daily_recent = df_daily.tail(60)
+    df_hourly_recent = df_hourly.tail(48)
 
     # 4. 공포 탐욕 지수 가져오기
     fear_greed_index = get_fear_and_greed_index()
-
-    # # 5. Selenum으로 Upbit KRW-BTC 차트 캡쳐 (1일봉, 볼린저밴드, 일목균형표 추가)
-    # driver = None
-    # try:
-    #     driver = sn.create_driver()
-    #     driver.get("https://upbit.com/full_chart?code=CRIX.UPBIT.KRW-BTC")
-    #     logger.info("Upbit KRW-BTC 페이지 로드 완료")
-    #     time.sleep(10) # 네트워크 환경 고려하여 페이지 로딩 대기 시간
-    #     logger.info("차트 작업 시작")
-    #     sn.perform_chart_actions(driver)
-    #     logger.info("차트 작업 완료")
-    #     chart_image, saved_file_path = sn.capture_and_encode_screenshot(driver)
-    #     logger.info(f"스크린 샷 캡쳐 완료. 저장된 파일 경로: {saved_file_path}")
-    # except WebDriverException as e:
-    #     logger.error(f"WebDriver 오류 발생 : {e}")
-    #     chart_image, saved_file_path = None, None
-    # except Exception as e:
-    #     logger.error(f"차트 캡쳐 중 오류 발생: {e}")
-    #     chart_image, saved_file_path = None, None
-    # finally:
-    #     if driver:
-    #         driver.quit()
 
     # AI에게 데이터 제공하고 판단 받기
     client = OpenAI(
@@ -433,7 +381,9 @@ def ai_trading():
 
 
 # schedule.every(3).minutes.do(ai_trading)
+schedule.every().day.at("05:00").do(ai_trading)
 schedule.every().day.at("11:00").do(ai_trading)
+schedule.every().day.at("17:00").do(ai_trading)
 schedule.every().day.at("23:00").do(ai_trading)
 
 while 1:
