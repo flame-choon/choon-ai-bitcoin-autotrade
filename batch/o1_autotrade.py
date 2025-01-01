@@ -1,6 +1,6 @@
-import util.init as init
-import util.aws as aws
-import util.crypt as crypt
+from util.init import Init
+from util.crypt import Crypt
+from util.aws import AWS
 import util.db as db
 import pyupbit
 import schedule
@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 환경변수 로드
-env = init.set_env()
+env = Init.set_env()
 
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
@@ -98,7 +98,7 @@ def generate_reflection(trades_df, current_market_data, openAIParameter):
     performance = calculate_performance(trades_df)  # 투자 퍼포먼스 계산
     
     client = OpenAI(
-        api_key=crypt.decrypt_env_value(openAIParameter)
+        api_key=Crypt.decrypt_env_value(openAIParameter)
     )
     if not client.api_key:
         logger.error("OpenAI API key is missing or invalid.")
@@ -142,22 +142,22 @@ def generate_reflection(trades_df, current_market_data, openAIParameter):
 def ai_trading():
 
     # AWS Assume Role로 접근
-    assume_session = aws.get_assume_role()
+    assume_session = AWS.get_assume_role()
 
     ### AWS Parameter Store에 접근하여 암호화 키 가져오기
-    upbitAccessParameter = aws.get_parameter(assume_session, env, 'key/upbit-access')
-    upbitSecretParameter = aws.get_parameter(assume_session, env, 'key/upbit-secret')
-    openAIParameter = aws.get_parameter(assume_session, env, 'key/openai')
+    upbitAccessParameter = AWS.get_parameter(assume_session, env, 'key/upbit-access')
+    upbitSecretParameter = AWS.get_parameter(assume_session, env, 'key/upbit-secret')
+    openAIParameter = AWS.get_parameter(assume_session, env, 'key/openai')
 
     ### 암호화 키 호출
-    crypt.init(assume_session, env)
+    Crypt.init(assume_session, env)
 
     # 데이터베이스 초기화
     db.init_db(assume_session, env)
 
     # Upbit 객체 생성
-    accessKey = crypt.decrypt_env_value(upbitAccessParameter)
-    secretKey = crypt.decrypt_env_value(upbitSecretParameter)
+    accessKey = Crypt.decrypt_env_value(upbitAccessParameter)
+    secretKey = Crypt.decrypt_env_value(upbitSecretParameter)
     upbit = pyupbit.Upbit(accessKey, secretKey)
 
     # 1. 현재 투자 상태 조회 (KRW, BTC 만 조회)
@@ -189,15 +189,15 @@ def ai_trading():
 
     # AI에게 데이터 제공하고 판단 받기
     client = OpenAI(
-        api_key=crypt.decrypt_env_value(openAIParameter)
+        api_key=Crypt.decrypt_env_value(openAIParameter)
     )
     if not client.api_key:
         logger.error("OpenAI API key is missing or invalid.")
         return None
 
     # 데이터 베이스 연결
-    dbUrlParameter = aws.get_parameter(assume_session, env, 'db/url')
-    dbPasswordParameter = aws.get_parameter(assume_session, env, 'db/password')
+    dbUrlParameter = AWS.get_parameter(assume_session, env, 'db/url')
+    dbPasswordParameter = AWS.get_parameter(assume_session, env, 'db/password')
     conn = db.get_db_connection(dbUrlParameter, dbPasswordParameter)
 
     # 최근 거래 내역 가져오기
@@ -379,13 +379,13 @@ def ai_trading():
 
     conn.close()
 
-ai_trading()
+# ai_trading()
 
-# schedule.every().day.at("05:00").do(ai_trading)
-# schedule.every().day.at("11:00").do(ai_trading)
-# schedule.every().day.at("17:00").do(ai_trading)
-# schedule.every().day.at("23:00").do(ai_trading)
+schedule.every().day.at("05:00").do(ai_trading)
+schedule.every().day.at("11:00").do(ai_trading)
+schedule.every().day.at("17:00").do(ai_trading)
+schedule.every().day.at("23:00").do(ai_trading)
 
-# while 1:
-#     schedule.run_pending()
-#     time.sleep(1)
+while 1:
+    schedule.run_pending()
+    time.sleep(1)

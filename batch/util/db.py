@@ -1,23 +1,23 @@
+from util.crypt import Crypt
+from util.aws import AWS
 import mysql.connector
 import mysql
-import util.aws as aws
-import util.crypt as crypt
+
 
 ### SQLite DB 연결
 def get_db_connection(dbUrlParameter, dbPasswordParameter):
-    print(crypt.decrypt_env_value(dbUrlParameter))
-
+    
     return mysql.connector.connect(
-        host=crypt.decrypt_env_value(dbUrlParameter),
+        host=Crypt.decrypt_env_value(dbUrlParameter),
         user="application",
-        password=crypt.decrypt_env_value(dbPasswordParameter),
+        password=Crypt.decrypt_env_value(dbPasswordParameter),
         database="bitcoin_trades"
     )
 
 ### DB 초기화
 def init_db(assume_session, env):
-    dbUrlParameter = aws.get_parameter(assume_session, env, 'db/url')
-    dbPasswordParameter = aws.get_parameter(assume_session, env, 'db/password')
+    dbUrlParameter = AWS.get_parameter(assume_session, env, 'db/url')
+    dbPasswordParameter = AWS.get_parameter(assume_session, env, 'db/password')
 
     conn = get_db_connection(dbUrlParameter, dbPasswordParameter)
     c = conn.cursor()
