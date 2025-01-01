@@ -34,15 +34,15 @@ def add_indicators(df):
     # RSI (Relative Strength Index) 추가
     df['rsi'] = ta.momentum.RSIIndicator(close=df['close'], window=14).rsi()
 
-    # MACD (Moving Average Convergence Divergence) 추가
-    macd = ta.trend.MACD(close=df['close'])
-    df['macd'] = macd.macd()
-    df['macd_signal'] = macd.macd_signal()
-    df['macd_diff'] = macd.macd_diff()
-    
     # 이동평균선 (단기, 장기)
     df['sma_20'] = ta.trend.SMAIndicator(close=df['close'], window=20).sma_indicator()
     df['ema_12'] = ta.trend.EMAIndicator(close=df['close'], window=12).ema_indicator()
+
+    # # MACD (Moving Average Convergence Divergence) 추가
+    # macd = ta.trend.MACD(close=df['close'])
+    # df['macd'] = macd.macd()
+    # df['macd_signal'] = macd.macd_signal()
+    # df['macd_diff'] = macd.macd_diff()
 
     #  # Stochastic Oscillator 추가
     # stoch = ta.momentum.StochasticOscillator(
@@ -106,7 +106,7 @@ def generate_reflection(trades_df, current_market_data, openAIParameter):
         
     # OpenAI API 호출로 AI의 반성 일기 및 개선 사항 생성 요청
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-2024-11-20",
         messages=[
             {
                 "role": "system",
@@ -181,8 +181,8 @@ def ai_trading():
     df_hourly = add_indicators(df_hourly)
 
     # 최근 데이터만 사용하도록 설정 (메모리 절약)
-    df_daily_recent = df_daily.tail(60)
-    df_hourly_recent = df_hourly.tail(48)
+    df_daily_recent = df_daily.tail(30)
+    df_hourly_recent = df_hourly.tail(24)
 
     # 4. 공포 탐욕 지수 가져오기
     fear_greed_index = get_fear_and_greed_index()
@@ -379,13 +379,13 @@ def ai_trading():
 
     conn.close()
 
+ai_trading()
 
-# schedule.every(3).minutes.do(ai_trading)
-schedule.every().day.at("05:00").do(ai_trading)
-schedule.every().day.at("11:00").do(ai_trading)
-schedule.every().day.at("17:00").do(ai_trading)
-schedule.every().day.at("23:00").do(ai_trading)
+# schedule.every().day.at("05:00").do(ai_trading)
+# schedule.every().day.at("11:00").do(ai_trading)
+# schedule.every().day.at("17:00").do(ai_trading)
+# schedule.every().day.at("23:00").do(ai_trading)
 
-while 1:
-    schedule.run_pending()
-    time.sleep(1)
+# while 1:
+#     schedule.run_pending()
+#     time.sleep(1)
