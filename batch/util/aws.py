@@ -4,8 +4,12 @@ class AWS:
     AWS_DEFAULT_REGION = "ap-northeast-2"
 
     ### AWS Assume 권한 획득
-    def get_assume_role():
-        boto3_session = boto3.Session(profile_name='choon')
+    def get_assume_role(env):
+        if env == "local":
+            boto3_session = boto3.Session(profile_name='choon')
+        else:
+            boto3_session = boto3.Session()    
+            
         sts_client = boto3_session.client('sts')
         assume_role_client = sts_client.assume_role(
             RoleArn="arn:aws:iam::879780444466:role/choon-assume-role",
