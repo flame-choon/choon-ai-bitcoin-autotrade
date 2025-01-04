@@ -2,21 +2,21 @@ from util.init import Init
 from util.crypt import Crypt
 from util.aws import AWS
 from util.db import DB
-from util.openApi import OpenApi
+from util.chatgpt import ChatGPT
+from util.log import Log
 import pyupbit
 import time
-import schedule
 import ta
 from ta.utils import dropna
 import requests
-import logging
+import schedule
 
 ### 로깅 설정
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = Log()
 
 # 환경변수 로드
 env = Init.set_env()
+
 
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
@@ -57,7 +57,7 @@ def get_fear_and_greed_index():
         data = response.json()
         return data['data'][0]
     except requests.exceptions.RequestsException as e:
-        logger.error(f"Error fetching Fear and Greed Index: {e}")
+        logger.recordLog(Log.ERROR, " Error fetching Fear and Greed Index", f"{e}")
         return None
 
 ### 자동 트레이드 메서드
@@ -87,21 +87,19 @@ def ai_trading(env):
     upbit = pyupbit.Upbit(accessKey, secretKey)
 
     # OpenAI 초기화
-    openAi = OpenApi(assume_session, env)
+    openAi = ChatGPT(assume_session, env)
     openAiClient = openAi.init()
     if not openAiClient.api_key:
-        logger.error("OpenAI API key is missing or invalid.")
+        logger.recordLog(Log.ERROR, "Error", "OpenAI API key is missing or invalid.")
         return None
 
     # 1. 현재 투자 상태 조회 (KRW, BTC 만 조회)
     all_balances = upbit.get_balances()
     filtered_balances = [balance for balance in all_balances if balance['currency'] in ['BTC','KRW']]
-    # print(json.dumps(filtered_balances))
-
+    
     # 2. KRW-BTC 오더북 (호가 데이터) 조회
     orderbook = pyupbit.get_orderbook("KRW-BTC")
-    # print(json.dumps(orderbook))
-
+    
     # 3. 차트 데이터 조회 및 보조지표 추가
     # 30일 일봉 데이터
     df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=180)
@@ -133,15 +131,14 @@ def ai_trading(env):
 
     # 반성 및 개선 내용 생성
     reflection = openAi.generate_reflection(openAiClient, recent_trades, current_market_data)
-    logger.info(reflection)
-
+    
     # AI에 투자 판단 요청
     response_text = openAi.generate_trade(openAiClient, reflection, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index)
-    
+
     # AI의 응답내용 파싱
     parsed_response = openAi.parse_ai_response(response_text)
     if not parsed_response:
-        logger.error("Failed to parse AI response")
+        logger.recordLog(Log.ERROR, "Error", "Failed to parse AI response")
         return 
 
     decision = parsed_response.get('decision')
@@ -149,57 +146,57 @@ def ai_trading(env):
     reason = parsed_response.get('reason')
 
     if not decision or reason is None:
-        logger.error("Incomplete data in AI response.")
+        logger.recordLog(Log.ERROR, "Error", "Incomplete data in AI response.")
         return
     
-    logger.info(f"AI Decision: {decision.upper()}")
-    logger.info(f"percentage: {percentage}")
-    logger.info(f"Decision Reason: {reason}")
+    # logger.info(f"AI Decision: {decision.upper()}")
+    # logger.info(f"percentage: {percentage}")
+    # logger.info(f"Decision Reason: {reason}")
 
     order_executed = False
 
     if decision == "buy":
         my_krw = upbit.get_balance("KRW")
         if my_krw is None:
-            logger.error("Failed to retrieve KRW balance.")
+            logger.recordLog(Log.ERROR, "Error", "Failed to retrieve KRW balance.")
             return
         buy_amount = my_krw * (percentage / 100) * 0.9995
         if buy_amount > 5000:
-            logger.info(f"### Buy Order Executed: {percentage}% of available KRW ###")
+            logger.recordLog(Log.INFO, "Buy Order Executed", f"{percentage}% of available KRW")
             try:                
                 order = upbit.buy_market_order("KRW-BTC", buy_amount)
                 if order:
-                    logger.info(f"Buy order executed successfullly: {order}")
+                    logger.recordLog(Log.INFO, "Buy order executed successfullly", f"{order}")
                     order_executed = True
                 else:
-                    logger.error("Buy order failed.")
+                    logger.recordLog(Log.ERROR, "Error", "Buy order failed.")
             except Exception as e:
-                logger.error(f"Error executing buy order: {e}")
+                logger.recordLog(Log.ERROR, "Error executing buy order", f"{e}")
         else:
-            logger.warning("### Buy Order Failed: Insufficient KRW (less than 5000 KRW) ###")
+            logger.recordLog(Log.WARNING, "Buy Order Failed", "Insufficient KRW (less than 5000 KRW)")
     elif decision == "sell":
         my_btc = upbit.get_balance("KRW-BTC")
         if my_btc is None:
-            logger.error("Failed to retrieve BTC balance.")
+            logger.ERROR(Log.ERROR, "Error", "Failed to retrieve BTC balance.")
             return
         sell_amount = my_btc * (percentage / 100)
         current_price = pyupbit.get_current_price("KRW-BTC")
         if sell_amount * current_price > 5000:
-            logger.info(f"Sell Order Executed: {percentage}% of held BTC")
+            logger.recordLog(Log.INFO, "Sell Order Executed", f"{percentage}% of held BTC")
             try:
                 order = upbit.sell_market_order("KRW-BTC", sell_amount)
                 if order:
                     order_executed = True
                 else:
-                    logger.error("Sell order failed.")
+                    logger.recordLog(Log.ERROR, "Error", "Sell order failed.")
             except Exception as e:
-                logger.error(f"Error executing sell order: {e}")
+                logger.recordLog(Log.ERROR, "Error executing sell order", f"{e}")
         else:
-            logger.warning("### Sell Order Failed: Insufficient BTC (less than 5000 KRW worth) ###")
+            logger.recordLog(Log.WARNING, "Sell Order Failed", "Insufficient BTC (less than 5000 KRW worth)")
     elif decision == "hold":
-        logger.info("### Hold Position ###")
+        logger.recordLog(Log.INFO, "INFO", "### Hold Position ###")
     else:
-        logger.error("Invalid decision received from AI.")
+        logger.recordLog(Log.ERROR, "ERROR", "Invalid decision received from AI.")
     
     # 거래 실행 여부와 관계없이 현재 잔고 조회
     time.sleep(2) # API 호출 제한을 고려하여 잠시 대기

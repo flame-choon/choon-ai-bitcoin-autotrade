@@ -1,3 +1,5 @@
+# 현재 사용하지 않는 파일
+
 import util.init as init
 import util.aws as aws
 import util.crypt as crypt

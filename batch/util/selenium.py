@@ -1,3 +1,5 @@
+# 현재 사용하지 않는 파일
+
 import time
 import base64
 import logging

@@ -1,15 +1,11 @@
 from util.crypt import Crypt
 from util.aws import AWS
+from util.log import Log
 from openai import OpenAI
 import json
 import re
-import logging
 
-class OpenApi:
-
-    ### 로깅 설정
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
+class ChatGPT:
 
     def __init__(self, assume_session, env):
         self.assume_session = assume_session
@@ -34,14 +30,7 @@ class OpenApi:
     
     # AI 모델을 사용하여 최근 투자 기록과 시장 데이터를 기반으로 분석 및 반성을 생성하는 함수
     def generate_reflection(self, openAiClient, trades_df, current_market_data):
-        performance = OpenApi.calculate_performance(trades_df)  # 투자 퍼포먼스 계산
-    
-        # openAiClient = OpenAI(
-        #     api_key=Crypt.decrypt_env_value(openAIParameter)
-        # )
-        # if not openAiClient.api_key:
-        #     logger.error("OpenAI API key is missing or invalid.")
-        #     return None
+        performance = ChatGPT.calculate_performance(trades_df)  # 투자 퍼포먼스 계산
         
         # OpenAI API 호출로 AI의 반성 일기 및 개선 사항 생성 요청
         response = openAiClient.chat.completions.create(
@@ -113,7 +102,7 @@ class OpenApi:
             {
                 "role": "user",
                 "content": f"""
-                You are an expert in Bitcoin investing. This analysis is performed every 12 hours. Analyze the provided data and datermine whether to buy, sell, or hold at the current moment. 
+                You are an expert in Bitcoin investing. This analysis is performed every 6 hours. Analyze the provided data and datermine whether to buy, sell, or hold at the current moment. 
                 Consider the following in your analysis:
                 
                 - Technical indicators and market data
@@ -136,13 +125,13 @@ class OpenApi:
                 "content": f"""
                     Current investment status: {json.dumps(filtered_balances)}
                     Orderbook: {json.dumps(orderbook)}
-                    Daily OHLCV with indicators (recent 60 days): {df_daily_recent.to_json()}
-                    Hourly OHLCV with indicators (recent 48 hours): {df_hourly_recent.to_json()}
+                    Daily OHLCV with indicators (recent 30 days): {df_daily_recent.to_json()}
+                    Hourly OHLCV with indicators (recent 24 hours): {df_hourly_recent.to_json()}
                     Fear and Greed Index: {json.dumps(fear_greed_index)}
                 """
             }
         ])
-        
+
         return response.choices[0].message.content
     
     # AI 응답 파싱
@@ -159,8 +148,9 @@ class OpenApi:
                 reason = parsed_json.get('reason')
                 return {'decision': decision, 'percentage': percentage, 'reason': reason}
             else:
-                OpenApi.logger.error("No JSON found in AI response.")
+                Log.recordLog(Log.ERROR,"Error","No JSON found in AI response.")
                 return None
         except json.JSONDecodeError as e:
-            OpenApi.logger.error(f"JSON parsing error: {e}")
+            Log.recordLog(Log.ERROR, "JSON parsing error", f"{e}")
+            # ChatGPT.logger.error(f"JSON parsing error: {e}")
             return None        
