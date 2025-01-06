@@ -6,8 +6,7 @@ import pyupbit
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-
-
+å
 ### 환경변수 로드
 env = Init.set_env()
 
