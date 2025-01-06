@@ -1,0 +1,6 @@
+streamlit
+plotly
+mysql-connector-python
+cryptography
+boto3
+pyupbit

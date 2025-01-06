@@ -1,29 +1,72 @@
+from util.init import Init
+from util.aws import AWS
+from util.crypt import Crypt
+from util.db import DB
+import pyupbit
 import streamlit as st
-import sqlite3
 import pandas as pd
 import plotly.express as px
 
-st.title('Hello World!')
-
-# 데이터베이스 연결 함수
-def get_connection():
-    return sqlite3.connect('bitcoin_trades.db')
-
+### 환경변수 로드
+env = Init.set_env()
 
 # 데이터 로드 함수
-def load_data():
-    conn = get_connection()
+def load_data(conn):
+    # conn = get_connection()
     query = "SELECT * FROM trades"
     df = pd.read_sql_query(query, conn)
     conn.close()
     return df
 
+# 초기 투자 금액 계산 함수
+def calculate_initial_investment(df):
+    initial_krw_balance = df.iloc[0]['krw_balance']
+    initial_btc_balance = df.iloc[0]['btc_balance']
+    initial_btc_price = df.iloc[0]['btc_krw_price']
+    initial_total_investment = initial_krw_balance + (initial_btc_balance * initial_btc_price)
+    return initial_total_investment
+
+# 현재 투자 금액 계산 함수
+def calculate_current_investment(df):
+    current_krw_balance = df.iloc[-1]['krw_balance']
+    current_btc_balance = df.iloc[-1]['btc_balance']
+    current_btc_price = pyupbit.get_current_price("KRW-BTC")  # 현재 BTC 가격 가져오기
+    current_total_investment = current_krw_balance + (current_btc_balance * current_btc_price)
+    return current_total_investment
+
 # 메인 함수
 def main():
     st.title('Bitcoinn Trades Viewer')
 
+    # AWS Assume Role로 접근
+    assume_session = AWS.get_assume_role(env)
+
+    # 암호화 키 호출
+    Crypt.init(assume_session, env)
+
+    # 데이터 베이스 연결
+    dbUrlParameter = AWS.get_parameter(assume_session, env, 'db/url')
+    dbPasswordParameter = AWS.get_parameter(assume_session, env, 'db/password')
+    conn = DB.get_db_connection(dbUrlParameter, dbPasswordParameter)
+
     # 데이터 로드
-    df = load_data()
+    df = load_data(conn)
+
+    if df.empty:
+        st.warning('No trade data available.')
+        return
+
+    # 초기 투자 금액 계산
+    initial_investment = calculate_initial_investment(df)
+
+    # 현재 투자 금액 계산
+    current_investment = calculate_current_investment(df)
+
+    # 수익률 계산
+    profit_rate = ((current_investment - initial_investment) / initial_investment) * 100
+
+    # 수익률 표시
+    st.header(f'📈 Current Profit Rate: {profit_rate:.2f}%')
 
     # 기본 통계
     st.header('Basic Statistics')
@@ -35,26 +78,6 @@ def main():
     st.header("Trade History")
     st.dataframe(df)
 
-    # 거래 결정 분포
-    st.header("Trade Decision Distribution")
-    decision_counts =  df['decision'].value_counts()
-    fig = px.pie(values=decision_counts.values, names=decision_counts.index, title='Trade Decisions')
-    st.plotly_chart(fig)
-
-    # BTC 잔액 변화
-    st.header("BTC Balance Over Time")
-    fig = px.line(df, x='timestamp', y='btc_balance', title='BTC Balance')
-    st.plotly_chart(fig)
-
-    # KRW 잔액 변화
-    st.header("KRW Balance Over Time")
-    fig = px.line(df, x='timestamp', y='krw_balance', title='KRW Balance')
-    st.plotly_chart(fig)
-
-    # BTC 가격 변화
-    st.header("BTC Price Over Time")
-    fig = px.line(df, x='timestamp', y='btc_krw_price', title='BTC Price (KRW)')
-    st.plotly_chart(fig)
 
 if __name__ == "__main__":
     main()
