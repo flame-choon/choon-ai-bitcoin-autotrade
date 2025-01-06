@@ -1,2 +1,12 @@
 streamlit
 plotly
+
+python-dotenv
+openai
+pyupbit
+ta
+Pillow
+mysql-connector-python
+cryptography
+boto3
+schedule

@@ -1,10 +1,10 @@
-name : (Batch) Deploy to EC2
+name : (Front) Deploy to EC2
 
 on:
     push:
         branches: [ main ]
         paths:
-          - "batch/**"
+        - "front/**"
 
 permissions:
     id-token: write
@@ -33,23 +33,23 @@ jobs:
           id: build-image
           env:
             ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-            ECR_REPOSITORY: choon-autotrade
+            ECR_REPOSITORY: choon-autotrade-front
             IMAGE_TAG: latest
           run: |
             cd batch
             docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
             docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
             echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
-
+        
         - name: Deploy to EC2 (using AWS SSM)
           uses: zip-go/aws-ssm-action@v1.0.0
           with:
             instanceName: choon-autotrade
             workingDirectory: /home/ec2-user
             commands: |
-                aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}/choon-autotrade
-                docker stop choon-autotrade              
-                docker rm choon-autotrade
+                aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}/choon-autotrade-front
+                docker stop choon-autotrade-front             
+                docker rm choon-autotrade-front
                 docker rmi  ${{ steps.build-image.outputs.image }}
                 docker pull  ${{ steps.build-image.outputs.image }}
-                docker run -d --name choon-autotrade -v /home/ec2-user/.aws:/root/.aws -e PYTHON_ENV=prd  ${{ steps.build-image.outputs.image }}
+                docker run -d --name choon-autotrade-front -p 8501:8501 -e PYTHON_ENV=prd  ${{ steps.build-image.outputs.image }}
