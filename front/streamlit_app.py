@@ -67,6 +67,7 @@ def main():
 
     # 수익률 표시
     st.header(f'📈 Current Profit Rate: {profit_rate:.2f}%')
+    st.write(f"Initial investment: {initial_investment}")
 
     # 기본 통계
     st.header('Basic Statistics')
