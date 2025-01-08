@@ -36,7 +36,7 @@ def calculate_current_investment(df):
 
 # 메인 함수
 def main():
-    st.title('Bitcoinn Trades Viewer')
+    st.title('Bitcoin Trades Viewer')
 
     # AWS Assume Role로 접근
     assume_session = AWS.get_assume_role(env)
