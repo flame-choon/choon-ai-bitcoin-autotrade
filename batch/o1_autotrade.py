@@ -130,10 +130,10 @@ def ai_trading(env):
     }
 
     # 반성 및 개선 내용 생성
-    reflection = openAi.generate_reflection(openAiClient, recent_trades, current_market_data)
+    # reflection = openAi.generate_reflection(openAiClient, recent_trades, current_market_data)
     
     # AI에 투자 판단 요청
-    response_text = openAi.generate_trade(openAiClient, reflection, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index)
+    response_text = openAi.generate_trade(openAiClient, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index)
 
     # AI의 응답내용 파싱
     parsed_response = openAi.parse_ai_response(response_text)

@@ -66,7 +66,7 @@ class ChatGPT:
         return response.choices[0].message.content
     
     # AI에 데이터들을 제공하여 투자 판단 결과를 받음
-    def generate_trade(self, openAiClient, reflection, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index):
+    def generate_trade(self, openAiClient, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index):
         
         # AI 모델에 반성 내용 제공
         # Few-shot prompting으로 JSON 예시 추가
