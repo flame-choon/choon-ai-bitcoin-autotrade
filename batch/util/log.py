@@ -10,7 +10,8 @@ class Log:
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    def recordLog(self, type, title, contents):
+    @staticmethod
+    def recordLog(type, title, contents):
         if type == Log.INFO:
             logging.info(f"[{datetime.now()}] {title} : {contents}")
         elif type == Log.WARNING:

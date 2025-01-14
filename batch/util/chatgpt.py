@@ -148,7 +148,7 @@ class ChatGPT:
                 reason = parsed_json.get('reason')
                 return {'decision': decision, 'percentage': percentage, 'reason': reason}
             else:
-                Log.recordLog(Log.ERROR,"Error","No JSON found in AI response.")
+                Log.recordLog(Log.ERROR, "Error", "No JSON found in AI response.")
                 return None
         except json.JSONDecodeError as e:
             Log.recordLog(Log.ERROR, "JSON parsing error", f"{e}")
