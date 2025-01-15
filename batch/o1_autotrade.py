@@ -104,12 +104,12 @@ def ai_trading(env):
     df_hourly = dropna(df_hourly)
     df_hourly = add_indicators(df_hourly)
 
-    # # 최근 데이터만 사용하도록 설정 (메모리 절약)
-    # df_daily_recent = df_daily.tail(30)
-    # df_hourly_recent = df_hourly.tail(24)
+    # 최근 데이터만 사용하도록 설정 (메모리 절약)
+    df_daily_recent = df_daily.tail(30)
+    df_hourly_recent = df_hourly.tail(24)
 
-    # # 2. 공포 탐욕 지수 가져오기
-    # fear_greed_index = get_fear_and_greed_index()
+    # 2. 공포 탐욕 지수 가져오기
+    fear_greed_index = get_fear_and_greed_index()
 
     # 3. 현재 투자 상태 조회 (KRW, BTC 만 조회)
     all_balances = upbit.get_balances()
