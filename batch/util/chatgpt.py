@@ -108,10 +108,7 @@ class ChatGPT:
                 - Technical indicators and market data
                 - The Fear and Greed Index and its implications
                 - Overall market sentiment
-                - Recent trading performance and reflection
-
-                Recent trading reflection:
-                {reflection}
+                - Recent trading performance
 
                 Based on your analysis, make a decision and provide your reasoning.
 

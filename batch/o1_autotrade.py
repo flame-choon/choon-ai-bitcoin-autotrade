@@ -92,44 +92,45 @@ def ai_trading(env):
     if not openAiClient.api_key:
         logger.recordLog(Log.ERROR, "Error", "OpenAI API key is missing or invalid.")
         return None
-
-    # 1. 현재 투자 상태 조회 (KRW, BTC 만 조회)
-    all_balances = upbit.get_balances()
-    filtered_balances = [balance for balance in all_balances if balance['currency'] in ['BTC','KRW']]
     
-    # 2. KRW-BTC 오더북 (호가 데이터) 조회
-    orderbook = pyupbit.get_orderbook("KRW-BTC")
-    
-    # 3. 차트 데이터 조회 및 보조지표 추가
+    # 1. 차트 데이터 조회 및 보조지표 추가
     # 30일 일봉 데이터
-    df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=180)
+    df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=30)
     df_daily = dropna(df_daily)     
     df_daily = add_indicators(df_daily)
     
-    # 24시간 시간봉 데이터
-    df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=168) # 7 days
+    # 7일 시간봉 데이터
+    df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=168) 
     df_hourly = dropna(df_hourly)
     df_hourly = add_indicators(df_hourly)
 
-    # 최근 데이터만 사용하도록 설정 (메모리 절약)
-    df_daily_recent = df_daily.tail(30)
-    df_hourly_recent = df_hourly.tail(24)
+    # # 최근 데이터만 사용하도록 설정 (메모리 절약)
+    # df_daily_recent = df_daily.tail(30)
+    # df_hourly_recent = df_hourly.tail(24)
 
-    # 4. 공포 탐욕 지수 가져오기
-    fear_greed_index = get_fear_and_greed_index()
+    # # 2. 공포 탐욕 지수 가져오기
+    # fear_greed_index = get_fear_and_greed_index()
 
-    # 5. 최근 거래 내역 가져오기
-    recent_trades = DB.get_recent_trades(conn)
+    # 3. 현재 투자 상태 조회 (KRW, BTC 만 조회)
+    all_balances = upbit.get_balances()
+    filtered_balances = [balance for balance in all_balances if balance['currency'] in ['BTC','KRW']]
+    
+    # 4. KRW-BTC 오더북 (호가 데이터) 조회
+    orderbook = pyupbit.get_orderbook("KRW-BTC")
 
-    # 현재 시장 데이터 수집 (기존 코드에서 가져온 데이터 사용)
-    current_market_data = {
-        "fear_greed_index": fear_greed_index,
-        "orderbook": orderbook,
-        "daily_ohlcv": df_daily.to_dict(),
-        "hourly_ohlcv": df_hourly.to_dict()
-    }
+    # # 5. 최근 거래 내역 가져오기
+    # recent_trades = DB.get_recent_trades(conn)
+
+    # # 현재 시장 데이터 수집 (기존 코드에서 가져온 데이터 사용)
+    # current_market_data = {
+    #     "fear_greed_index": fear_greed_index,
+    #     "orderbook": orderbook,
+    #     "daily_ohlcv": df_daily.to_dict(),
+    #     "hourly_ohlcv": df_hourly.to_dict()
+    # }
 
     # 반성 및 개선 내용 생성
+    reflection = ''
     # reflection = openAi.generate_reflection(openAiClient, recent_trades, current_market_data)
     
     # AI에 투자 판단 요청
@@ -199,7 +200,7 @@ def ai_trading(env):
         logger.recordLog(Log.ERROR, "ERROR", "Invalid decision received from AI.")
     
     # 거래 실행 여부와 관계없이 현재 잔고 조회
-    time.sleep(2) # API 호출 제한을 고려하여 잠시 대기
+    # time.sleep(2) # API 호출 제한을 고려하여 잠시 대기
     balances = upbit.get_balances()
     btc_balance = next((float(balance['balance']) for balance in balances if balance['currency'] == 'BTC'), 0)
     krw_balance = next((float(balance['balance']) for balance in balances if balance['currency'] == 'KRW'), 0)
@@ -214,10 +215,11 @@ def ai_trading(env):
 
 # ai_trading(env)
 
-schedule.every().day.at("05:00").do(ai_trading, env)
-schedule.every().day.at("11:00").do(ai_trading, env)
-schedule.every().day.at("17:00").do(ai_trading, env)
-schedule.every().day.at("23:00").do(ai_trading, env)
+# 주기를 12시간 마다 인것을 고려
+schedule.every().day.at("05:00").do(ai_trading, env)    # Trigger at 14:00 (KST)
+schedule.every().day.at("11:00").do(ai_trading, env)    # Trigger at 20:00 (KST)
+schedule.every().day.at("17:00").do(ai_trading, env)    # Trigger at 02:00 (KST)
+schedule.every().day.at("23:00").do(ai_trading, env)    # Trigger at 08:00 (KST)
 
 while 1:
     schedule.run_pending()
