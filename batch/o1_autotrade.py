@@ -216,9 +216,9 @@ def ai_trading(env):
 # ai_trading(env)
 
 # 주기를 12시간 마다 인것을 고려
-schedule.every().day.at("05:00").do(ai_trading, env)    # Trigger at 14:00 (KST)
+# schedule.every().day.at("05:00").do(ai_trading, env)    # Trigger at 14:00 (KST)
 schedule.every().day.at("11:00").do(ai_trading, env)    # Trigger at 20:00 (KST)
-schedule.every().day.at("17:00").do(ai_trading, env)    # Trigger at 02:00 (KST)
+# schedule.every().day.at("17:00").do(ai_trading, env)    # Trigger at 02:00 (KST)
 schedule.every().day.at("23:00").do(ai_trading, env)    # Trigger at 08:00 (KST)
 
 while 1:
