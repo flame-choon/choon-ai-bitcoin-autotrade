@@ -118,20 +118,20 @@ def ai_trading(env):
     # 4. KRW-BTC 오더북 (호가 데이터) 조회
     orderbook = pyupbit.get_orderbook("KRW-BTC")
 
-    # # 5. 최근 거래 내역 가져오기
-    # recent_trades = DB.get_recent_trades(conn)
+    # 5. 최근 거래 내역 가져오기
+    recent_trades = DB.get_recent_trades(conn)
 
-    # # 현재 시장 데이터 수집 (기존 코드에서 가져온 데이터 사용)
-    # current_market_data = {
-    #     "fear_greed_index": fear_greed_index,
-    #     "orderbook": orderbook,
-    #     "daily_ohlcv": df_daily.to_dict(),
-    #     "hourly_ohlcv": df_hourly.to_dict()
-    # }
+    # 현재 시장 데이터 수집 (기존 코드에서 가져온 데이터 사용)
+    current_market_data = {
+        "fear_greed_index": fear_greed_index,
+        "orderbook": orderbook,
+        "daily_ohlcv": df_daily.to_dict(),
+        "hourly_ohlcv": df_hourly.to_dict()
+    }
 
     # 반성 및 개선 내용 생성
-    reflection = ''
-    # reflection = openAi.generate_reflection(openAiClient, recent_trades, current_market_data)
+    # reflection = ''
+    reflection = openAi.generate_reflection(openAiClient, recent_trades, current_market_data)
     
     # AI에 투자 판단 요청
     response_text = openAi.generate_trade(openAiClient, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index)
