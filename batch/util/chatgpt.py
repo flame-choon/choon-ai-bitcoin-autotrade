@@ -66,7 +66,7 @@ class ChatGPT:
         return response.choices[0].message.content
     
     # AI에 데이터들을 제공하여 투자 판단 결과를 받음
-    def generate_trade(self, openAiClient, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index, reflection):
+    def generate_trade(self, openAiClient, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index):
         
         # AI 모델에 반성 내용 제공
         # Few-shot prompting으로 JSON 예시 추가
@@ -108,10 +108,7 @@ class ChatGPT:
                 - Technical indicators and market data
                 - The Fear and Greed Index and its implications
                 - Overall market sentiment
-                - Recent trading performance and reflection
-
-                Recent trading reflection:
-                {reflection}
+                - Recent trading performance 
 
                 Based on your analysis, make a decision and provide your reasoning.
 
@@ -126,7 +123,7 @@ class ChatGPT:
                     Current investment status: {json.dumps(filtered_balances)}
                     Orderbook: {json.dumps(orderbook)}
                     Daily OHLCV with indicators (recent 30 days): {df_daily_recent.to_json()}
-                    Hourly OHLCV with indicators (recent 24 hours): {df_hourly_recent.to_json()}
+                    Hourly OHLCV with indicators (recent 168 hours): {df_hourly_recent.to_json()}
                     Fear and Greed Index: {json.dumps(fear_greed_index)}
                 """
             }

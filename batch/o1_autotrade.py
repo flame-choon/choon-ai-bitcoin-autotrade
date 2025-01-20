@@ -22,7 +22,7 @@ env = Init.set_env()
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
 def add_indicators(df):
     # 볼린저 밴드 추가
-    indicator_bb = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
+    indicator_bb = ta.volatility.BollingerBands(close=df['close'], window=5, window_dev=2)
     df['bb_bbm'] = indicator_bb.bollinger_mavg()
     df['bb_bbh'] = indicator_bb.bollinger_hband()
     df['bb_bbl'] = indicator_bb.bollinger_lband()
@@ -31,8 +31,8 @@ def add_indicators(df):
     df['rsi'] = ta.momentum.RSIIndicator(close=df['close'], window=14).rsi()
 
     # 이동평균선 (단기, 장기)
-    df['sma_20'] = ta.trend.SMAIndicator(close=df['close'], window=20).sma_indicator()
-    df['ema_12'] = ta.trend.EMAIndicator(close=df['close'], window=12).ema_indicator()
+    df['sma_5'] = ta.trend.SMAIndicator(close=df['close'], window=5).sma_indicator()
+    df['ema_7'] = ta.trend.EMAIndicator(close=df['close'], window=7).ema_indicator()
 
     # # MACD (Moving Average Convergence Divergence) 추가
     # macd = ta.trend.MACD(close=df['close'])
@@ -52,7 +52,7 @@ def add_indicators(df):
 def get_fear_and_greed_index():
     url = "https://api.alternative.me/fng/"
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=10, verify=False )
         response.raise_for_status()
         data = response.json()
         return data['data'][0]
@@ -95,18 +95,20 @@ def ai_trading(env):
     
     # 1. 차트 데이터 조회 및 보조지표 추가
     # 30일 일봉 데이터
-    df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=30)
-    df_daily = dropna(df_daily)     
+    df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=44)  ## RSI 데이터 제공으로 인해 14일 추가하여 호출
     df_daily = add_indicators(df_daily)
-    
-    # 7일 시간봉 데이터
-    df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=168) 
-    df_hourly = dropna(df_hourly)
-    df_hourly = add_indicators(df_hourly)
+    df_daily = dropna(df_daily)     
 
-    # 최근 데이터만 사용하도록 설정 (메모리 절약)
-    df_daily_recent = df_daily.tail(30)
-    df_hourly_recent = df_hourly.tail(24)
+    # 7일 시간봉 데이터
+    df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=168) ## RSI 데이터 제공으로 인해 14시간 추가하여 호출
+    df_hourly = add_indicators(df_hourly)
+    df_hourly = dropna(df_hourly)
+
+    # df_hourly.to_csv('output.csv', index=True)
+
+    # # 최근 데이터만 사용하도록 설정 (메모리 절약)
+    # df_daily_recent = df_daily.tail(30)
+    # df_hourly_recent = df_hourly.tail(24)
 
     # 2. 공포 탐욕 지수 가져오기
     fear_greed_index = get_fear_and_greed_index()
@@ -118,7 +120,7 @@ def ai_trading(env):
     # 4. KRW-BTC 오더북 (호가 데이터) 조회
     orderbook = pyupbit.get_orderbook("KRW-BTC")
 
-    # 5. 최근 거래 내역 가져오기
+    # # 5. 최근 거래 내역 가져오기
     recent_trades = DB.get_recent_trades(conn)
 
     # 현재 시장 데이터 수집 (기존 코드에서 가져온 데이터 사용)
@@ -130,11 +132,14 @@ def ai_trading(env):
     }
 
     # 반성 및 개선 내용 생성
-    # reflection = ''
-    reflection = openAi.generate_reflection(openAiClient, recent_trades, current_market_data)
+    reflection = ''
+    # reflection = openAi.generate_reflection(openAiClient, recent_trades, current_market_data)
     
     # AI에 투자 판단 요청
-    response_text = openAi.generate_trade(openAiClient, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index, reflection)
+    response_text = openAi.generate_trade(openAiClient, filtered_balances, orderbook, df_daily, df_hourly, fear_greed_index)
+    # response_text = openAi.generate_trade(openAiClient, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index, reflection)
+
+    # print(response_text)
 
     # AI의 응답내용 파싱
     parsed_response = openAi.parse_ai_response(response_text)
