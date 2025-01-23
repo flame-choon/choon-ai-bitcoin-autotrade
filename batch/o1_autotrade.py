@@ -22,15 +22,18 @@ env = Init.set_env()
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
 def add_indicators(df):
     # 볼린저 밴드 추가
+    # windows 값 만큼의 데이터가 있어야 산출이 가능
     indicator_bb = ta.volatility.BollingerBands(close=df['close'], window=5, window_dev=2)
     df['bb_bbm'] = indicator_bb.bollinger_mavg()
     df['bb_bbh'] = indicator_bb.bollinger_hband()
     df['bb_bbl'] = indicator_bb.bollinger_lband()
 
     # RSI (Relative Strength Index) 추가
+    # 최소 14일치의 데이터가 있어야 조회 가능
     df['rsi'] = ta.momentum.RSIIndicator(close=df['close'], window=14).rsi()
 
     # 이동평균선 (단기, 장기)
+    # window 값 만큼의 데이터가 있어야 산출이 가능
     df['sma_5'] = ta.trend.SMAIndicator(close=df['close'], window=5).sma_indicator()
     df['ema_7'] = ta.trend.EMAIndicator(close=df['close'], window=7).ema_indicator()
 
@@ -52,7 +55,7 @@ def add_indicators(df):
 def get_fear_and_greed_index():
     url = "https://api.alternative.me/fng/"
     try:
-        response = requests.get(url, timeout=10, verify=False )
+        response = requests.get(url, timeout=10)
         response.raise_for_status()
         data = response.json()
         return data['data'][0]
@@ -138,8 +141,6 @@ def ai_trading(env):
     # AI에 투자 판단 요청
     response_text = openAi.generate_trade(openAiClient, filtered_balances, orderbook, df_daily, df_hourly, fear_greed_index)
     # response_text = openAi.generate_trade(openAiClient, filtered_balances, orderbook, df_daily_recent, df_hourly_recent, fear_greed_index, reflection)
-
-    # print(response_text)
 
     # AI의 응답내용 파싱
     parsed_response = openAi.parse_ai_response(response_text)

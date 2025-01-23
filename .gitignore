@@ -3,6 +3,12 @@ upbit*
 **/security_make.py
 choon-autotrade.pem
 
+.idea
+.DS_Store
+._.DS_Store
+**/.DS_Store
+**/._.DS_Store
+
 # Distribution / packaging
 .Python
 build/
