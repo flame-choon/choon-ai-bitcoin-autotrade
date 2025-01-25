@@ -100,12 +100,14 @@ def ai_trading(env):
     # 30일 일봉 데이터
     df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=44)  ## RSI 데이터 제공으로 인해 14일 추가하여 호출
     df_daily = add_indicators(df_daily)
-    df_daily = dropna(df_daily)     
+    df_daily = dropna(df_daily) 
+    df_daily.rename(columns={'value': 'value_krw'}, inplace=True)  
 
     # 7일 시간봉 데이터
     df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=168) ## RSI 데이터 제공으로 인해 14시간 추가하여 호출
     df_hourly = add_indicators(df_hourly)
     df_hourly = dropna(df_hourly)
+    df_hourly.rename(columns={'value': 'value_krw'}, inplace=True)
 
     # df_hourly.to_csv('output.csv', index=True)
 

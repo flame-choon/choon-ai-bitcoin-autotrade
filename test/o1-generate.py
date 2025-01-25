@@ -151,7 +151,7 @@ def o1_generate(env):
 
     # OpenAI 초기화
     openAIParameter = get_parameter(assume_session, env, 'key/openai')
-    print(openAIParameter)
+    # print(openAIParameter)
 
     # openAi = OpenAI(api_key=decrypt_env_value(openAIParameter))
     # openAiClient = openAi.init()
@@ -164,6 +164,9 @@ def o1_generate(env):
     df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=44)  ## RSI 데이터 제공으로 인해 14일 추가하여 호출
     df_daily = add_indicators(df_daily)
     df_daily = dropna(df_daily)     
+    df_daily.rename(columns={'value': 'value_krw'}, inplace=True)
+
+    print(df_daily.head())
 
     # 7일 시간봉 데이터
     df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=168) ## RSI 데이터 제공으로 인해 14시간 추가하여 호출
@@ -182,7 +185,7 @@ def o1_generate(env):
 
     messages = generate_trade(filtered_balances, orderbook, df_daily, df_hourly, fear_greed_index)
 
-    print(messages)
+    # print(messages)
 
     return ""
 
