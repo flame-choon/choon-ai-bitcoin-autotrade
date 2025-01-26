@@ -30,12 +30,14 @@ def calculate_initial_investment(df):
 def calculate_current_investment(df):
     current_krw_balance = df.iloc[-1]['krw_balance']
     current_btc_balance = df.iloc[-1]['btc_balance']
+    btc_avg_buy_price = df.iloc[-1]['btc_avg_buy_price']
     current_btc_price = pyupbit.get_current_price("KRW-BTC")  # 현재 BTC 가격 가져오기
     current_total_investment = current_krw_balance + (current_btc_balance * current_btc_price)
 
     st.write(f"current krw balance : {current_krw_balance}")
     st.write(f"current btc balance : {current_btc_balance}")
     st.write(f"current btc price : {current_btc_price}")
+    st.write(f"btc average buy price : {btc_avg_buy_price}")
 
     return current_total_investment
 
@@ -48,6 +50,15 @@ def main():
 
     # 암호화 키 호출
     Crypt.init(assume_session, env)
+
+    ### AWS Parameter Store에 접근하여 암호화 키 가져오기
+    upbitAccessParameter = AWS.get_parameter(assume_session, env, 'key/upbit-access')
+    upbitSecretParameter = AWS.get_parameter(assume_session, env, 'key/upbit-secret')
+
+    # Upbit 객체 생성
+    accessKey = Crypt.decrypt_env_value(upbitAccessParameter)
+    secretKey = Crypt.decrypt_env_value(upbitSecretParameter)
+    upbit = pyupbit.Upbit(accessKey, secretKey)
 
     # 데이터 베이스 연결
     dbUrlParameter = AWS.get_parameter(assume_session, env, 'db/url')
