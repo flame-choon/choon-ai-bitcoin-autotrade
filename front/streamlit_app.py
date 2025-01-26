@@ -67,6 +67,7 @@ def main():
 
     # 현재 투자 금액 계산
     current_investment = calculate_current_investment(df)
+    current_investment_fstring = f"{current_investment:,} 원"
 
     # 수익률 계산
     profit_rate = ((current_investment - initial_investment) / initial_investment) * 100
@@ -74,6 +75,7 @@ def main():
     # 수익률 표시
     st.header(f'📈 Current Profit Rate: {profit_rate:.2f}%')
     st.write(f"Initial investment: {initial_investment_fstring}")
+    st.write(f"Current investment: {current_investment_fstring}")
 
     # 기본 통계
     st.header('Basic Statistics')
