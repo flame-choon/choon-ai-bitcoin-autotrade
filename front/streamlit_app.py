@@ -24,7 +24,7 @@ def calculate_initial_investment(df):
     initial_btc_balance = df.iloc[0]['btc_balance']
     initial_btc_price = df.iloc[0]['btc_krw_price']
     initial_total_investment = initial_krw_balance + (initial_btc_balance * initial_btc_price)
-    return initial_total_investment
+    return initial_krw_balance
 
 # 현재 투자 금액 계산 함수
 def calculate_current_investment(df):

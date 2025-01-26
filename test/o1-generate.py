@@ -6,6 +6,7 @@ from openai import OpenAI
 import requests
 import json
 import boto3
+import tiktoken
 
 def get_parameter(session, env, keyPath):
     ssm_client = session.client('ssm')
@@ -20,7 +21,8 @@ def decrypt_env_value(encrypted_value):
 def get_fear_and_greed_index():
     url = "https://api.alternative.me/fng/"
     try:
-        response = requests.get(url, timeout=10, verify=False)
+        response = requests.get(url, timeout=10)
+        # response = requests.get(url, timeout=10, verify=False)
         response.raise_for_status()
         data = response.json()
         return data['data'][0]
@@ -186,6 +188,10 @@ def o1_generate(env):
     messages = generate_trade(filtered_balances, orderbook, df_daily, df_hourly, fear_greed_index)
 
     # print(messages)
+
+    # encoder = tiktoken.get_encoding("o200k_base")
+    # tokens = encoder.encode(messages)
+    # print(len(tokens))
 
     return ""
 
