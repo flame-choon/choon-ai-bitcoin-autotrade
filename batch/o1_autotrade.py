@@ -174,6 +174,7 @@ def ai_trading(env):
             logger.recordLog(Log.INFO, "Buy Order Executed", f"{percentage}% of available KRW")
             try:                
                 order = upbit.buy_market_order("KRW-BTC", buy_amount)
+                time.sleep(5) # 거래 데이터가 반영되지 않는 것이 확인되어 sleep코드 추가
                 if order:
                     logger.recordLog(Log.INFO, "Buy order executed successfullly", f"{order}")
                     order_executed = True
@@ -194,6 +195,7 @@ def ai_trading(env):
             logger.recordLog(Log.INFO, "Sell Order Executed", f"{percentage}% of held BTC")
             try:
                 order = upbit.sell_market_order("KRW-BTC", sell_amount)
+                time.sleep(5) # 거래 데이터가 반영되지 않는 것이 확인되어 sleep코드 추가
                 if order:
                     order_executed = True
                 else:
@@ -208,7 +210,6 @@ def ai_trading(env):
         logger.recordLog(Log.ERROR, "ERROR", "Invalid decision received from AI.")
     
     # 거래 실행 여부와 관계없이 현재 잔고 조회
-    # time.sleep(2) # API 호출 제한을 고려하여 잠시 대기
     balances = upbit.get_balances()
     btc_balance = next((float(balance['balance']) for balance in balances if balance['currency'] == 'BTC'), 0)
     krw_balance = next((float(balance['balance']) for balance in balances if balance['currency'] == 'KRW'), 0)
