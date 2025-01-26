@@ -32,15 +32,17 @@ def calculate_current_investment(df):
     current_btc_balance = df.iloc[-1]['btc_balance']
     btc_avg_buy_price = df.iloc[-1]['btc_avg_buy_price']
     current_btc_price = pyupbit.get_current_price("KRW-BTC")  # 현재 BTC 가격 가져오기
-    current_total_investment = current_krw_balance + (current_btc_balance * current_btc_price)
+    btc_purchase_price = current_btc_balance * btc_avg_buy_price
+    profit = (current_btc_balance * current_btc_price) - btc_purchase_price
 
-    profit = (current_btc_balance * current_btc_price) - (current_btc_balance * btc_avg_buy_price)
+    current_total_investment = current_krw_balance + btc_purchase_price + profit
 
     st.write(f"current krw balance : {current_krw_balance}")
     st.write(f"current btc balance : {current_btc_balance}")
     st.write(f"current btc price : {current_btc_price}")
     st.write(f"btc average buy price : {btc_avg_buy_price}")
     st.write(f"profit value : {profit}")
+    st.write(f"current total investment : {current_total_investment}")
 
     return current_total_investment
 
