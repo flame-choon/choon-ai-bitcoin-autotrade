@@ -33,9 +33,10 @@ def calculate_current_investment(df):
     current_btc_price = pyupbit.get_current_price("KRW-BTC")  # 현재 BTC 가격 가져오기
     current_total_investment = current_krw_balance + (current_btc_balance * current_btc_price)
 
-    print(f"current krw balance : {current_krw_balance}")
-    print(f"current btc balance : {current_btc_balance}")
-    print(f"current btc price : {current_btc_price}")
+    st.write(f"current krw balance : {current_krw_balance}")
+    st.write(f"current btc balance : {current_btc_balance}")
+    st.write(f"current btc price : {current_btc_price}")
+
     return current_total_investment
 
 # 메인 함수
