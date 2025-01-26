@@ -63,6 +63,7 @@ def main():
 
     # 초기 투자 금액 계산
     initial_investment = calculate_initial_investment(df)
+    initial_investment_fstring = f"{initial_investment:,} 원"
 
     # 현재 투자 금액 계산
     current_investment = calculate_current_investment(df)
@@ -72,7 +73,7 @@ def main():
 
     # 수익률 표시
     st.header(f'📈 Current Profit Rate: {profit_rate:.2f}%')
-    st.write(f"Initial investment: {initial_investment}")
+    st.write(f"Initial investment: {initial_investment_fstring}")
 
     # 기본 통계
     st.header('Basic Statistics')

@@ -168,7 +168,7 @@ def o1_generate(env):
     df_daily = dropna(df_daily)     
     df_daily.rename(columns={'value': 'value_krw'}, inplace=True)
 
-    print(df_daily.head())
+    # print(df_daily.head())
 
     # 7일 시간봉 데이터
     df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=168) ## RSI 데이터 제공으로 인해 14시간 추가하여 호출
@@ -189,9 +189,9 @@ def o1_generate(env):
 
     # print(messages)
 
-    # encoder = tiktoken.get_encoding("o200k_base")
-    # tokens = encoder.encode(messages)
-    # print(len(tokens))
+    json_str = json.dumps(all_balances, indent=2, ensure_ascii=False)
+
+    print(json_str)
 
     return ""
 
