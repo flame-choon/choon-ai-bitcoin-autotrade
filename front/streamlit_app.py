@@ -24,7 +24,7 @@ def calculate_initial_investment(df):
     initial_btc_balance = df.iloc[0]['btc_balance']
     initial_btc_price = df.iloc[0]['btc_krw_price']
     initial_total_investment = initial_krw_balance + (initial_btc_balance * initial_btc_price)
-    return initial_krw_balance
+    return initial_total_investment
 
 # 현재 투자 금액 계산 함수
 def calculate_current_investment(df):
@@ -32,6 +32,10 @@ def calculate_current_investment(df):
     current_btc_balance = df.iloc[-1]['btc_balance']
     current_btc_price = pyupbit.get_current_price("KRW-BTC")  # 현재 BTC 가격 가져오기
     current_total_investment = current_krw_balance + (current_btc_balance * current_btc_price)
+
+    print(f"current krw balance : {current_krw_balance}")
+    print(f"current btc balance : {current_btc_balance}")
+    print(f"current btc price : {current_btc_price}")
     return current_total_investment
 
 # 메인 함수
