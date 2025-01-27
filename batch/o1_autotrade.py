@@ -25,7 +25,7 @@ def add_indicators(df):
     # 볼린저 밴드 추가
     # window 값 만큼의 데이터가 있어야 산출이 가능
     # window dev는 표준편차 값 설정
-    indicator_bb = ta.volatility.BollingerBands(close=df['close'], window=5, window_dev=2)
+    indicator_bb = ta.volatility.BollingerBands(close=df['close'], window=20, window_dev=2)
     df['bb_bbm'] = indicator_bb.bollinger_mavg()
     df['bb_bbh'] = indicator_bb.bollinger_hband()
     df['bb_bbl'] = indicator_bb.bollinger_lband()
@@ -145,13 +145,13 @@ def ai_trading(env):
     
     # 1. 차트 데이터 조회 및 보조지표 추가
     # 30일 일봉 데이터
-    df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=44)  ## RSI 데이터 제공으로 인해 14일 추가하여 호출
+    df_daily = pyupbit.get_ohlcv("KRW-BTC", interval="day", count=50)  ## RSI 데이터 제공으로 인해 14일 추가하여 호출
     df_daily = add_indicators(df_daily)
     df_daily = dropna(df_daily) 
     df_daily.rename(columns={'value': 'value_krw'}, inplace=True)  
 
     # 7일 시간봉 데이터
-    df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=168) ## RSI 데이터 제공으로 인해 14시간 추가하여 호출
+    df_hourly = pyupbit.get_ohlcv("KRW-BTC", interval="minute60", count=174) ## RSI 데이터 제공으로 인해 14시간 추가하여 호출
     df_hourly = add_indicators(df_hourly)
     df_hourly = dropna(df_hourly)
     df_hourly.rename(columns={'value': 'value_krw'}, inplace=True)
