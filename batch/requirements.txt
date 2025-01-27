@@ -7,6 +7,7 @@ mysql-connector-python
 cryptography
 boto3
 schedule
+pandas
 # pydantic-settings
 # selenium
 # webdriver-manager

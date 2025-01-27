@@ -1,4 +1,7 @@
 import boto3
+import json
+import requests
+import pandas as pd
 
 boto3_session = boto3.Session(profile_name='choon')
 sts_client = boto3_session.client('sts')
@@ -12,6 +15,27 @@ assume_session = boto3.Session(
     aws_secret_access_key=assume_role_client['Credentials']['SecretAccessKey'],
     aws_session_token=assume_role_client['Credentials']['SessionToken']
 )
+
+# API URL 설정 (예: Blockchain.com 해시레이트 데이터)
+url = "https://api.blockchain.info/charts/estimated-transaction-volume?timespan=1months&format=json"
+
+# API 호출
+response = requests.get(url)
+
+# 응답 상태 코드 확인
+if response.status_code == 200:  # 200은 요청 성공
+    # JSON 데이터를 파싱
+    data = response.json()
+    df = pd.DataFrame(data['values'])
+    # df['x'] = pd.to_datetime(df['x'], unit='s')  # Unix Timestamp -> Datetime
+    df.rename(columns={'x': 'Timestamp', 'y': 'Hashrate'}, inplace=True)
+
+    print(df.to_json())    
+    # pretty_json = json.dumps(data, indent=4)
+    # print(pretty_json)
+    # print("JSON Data:", data)  # 데이터 출력
+else:
+    print(f"Error: {response.status_code}")
 
 # ssm_client = assume_session.client('ssm')
 # parameter = ssm_client.get_parameter(Name='/local/key/fernet', WithDecryption=True)
