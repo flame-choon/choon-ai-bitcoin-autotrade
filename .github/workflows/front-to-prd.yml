@@ -52,4 +52,4 @@ jobs:
                 docker rm choon-autotrade-front
                 docker rmi  ${{ steps.build-image.outputs.image }}
                 docker pull  ${{ steps.build-image.outputs.image }}
-                docker run -d --name choon-autotrade-front -p 8501:8501 -e PYTHON_ENV=prd  ${{ steps.build-image.outputs.image }}
+                docker run -d --name choon-autotrade-front -p 8501:8501 -e PYTHON_ENV=prd --restart=always ${{ steps.build-image.outputs.image }}
