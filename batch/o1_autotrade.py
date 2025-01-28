@@ -18,7 +18,6 @@ logger = Log()
 # 환경변수 로드
 env = Init.set_env()
 
-
 ### TA 라이브러리를 이용하여 df 데이터에 보조지표 추가
 ### 추가한 보조 지표 : 볼린저 밴드, RSI, MACD, 이동평균선 
 def add_indicators(df):
