@@ -207,6 +207,7 @@ def ai_trading(env):
 
     # AI의 응답내용 파싱
     parsed_response = openAi.parse_ai_response(response_text)
+    logger.recordLog(Log.INFO, "INFO", parsed_response)
     if not parsed_response:
         logger.recordLog(Log.ERROR, "Error", "Failed to parse AI response")
         return 
