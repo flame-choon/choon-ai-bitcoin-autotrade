@@ -42,7 +42,7 @@ class ChatGPT:
 
         # OpenAI API 호출로 AI의 반성 일기 및 개선 사항 생성 요청
         response = openAiClient.chat.completions.create(
-            model="o3-mini",
+            model="o4-mini",
             messages=[
                 {
                     "role": "system",
@@ -115,7 +115,7 @@ class ChatGPT:
             """
 
         response = openAiClient.chat.completions.create(
-            model="o1-preview",
+            model="o4-mini",
             messages=[
                 {
                     "role": "user",
